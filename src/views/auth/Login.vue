@@ -188,7 +188,9 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import { useUserStore } from '@/stores/user'
+
 export default {
   name: 'LoginPage',
   data() {
@@ -201,7 +203,7 @@ export default {
       messageType: 'success',
       messageText: '',
       countdown: 2,
-      countdownTimer: null,
+      countdownTimer: null as ReturnType<typeof setInterval> | null,
       resetEmail: '',
       formData: {
         username: '',
@@ -258,10 +260,10 @@ export default {
       this.errors.password = ''
       return true
     },
-    clearFieldError(field) {
-      this.errors[field] = ''
+    clearFieldError(field: string) {
+      this.errors[field as keyof typeof this.errors] = ''
     },
-    showMessage(type, text) {
+    showMessage(type: 'success' | 'error', text: string) {
       this.messageType = type
       this.messageText = text
       this.showMessageModal = true
@@ -282,7 +284,9 @@ export default {
         this.countdown--
         
         if (this.countdown <= 0) {
-          clearInterval(this.countdownTimer)
+          if (this.countdownTimer) {
+            clearInterval(this.countdownTimer)
+          }
           this.countdownTimer = null
           this.closeMessageModal()
         }
@@ -297,12 +301,20 @@ export default {
       
       this.showMessageModal = false
       
+      // 只有成功消息才跳转，错误消息不跳转
       if (this.messageType === 'success') {
-        // 成功后跳转
-        this.$router.push('/').catch(err => {
-          console.log('路由跳转:', err)
+        // 登录成功后跳转
+        // 检查是否有重定向参数
+        const redirect = this.$route.query.redirect as string
+        const targetPath = redirect || '/'
+        
+        this.$router.push(targetPath).catch((err: any) => {
+          console.error('路由跳转失败:', err)
+          // 如果跳转失败，至少跳转到首页
+          this.$router.push('/')
         })
       }
+      // 如果是错误消息，不执行任何跳转，停留在登录页
     },
     async handleSubmit() {
       // 前端验证
@@ -318,58 +330,41 @@ export default {
       this.loading = true
       
       try {
-        // 模拟 API 调用延迟（1-2秒）
-        await new Promise(resolve => setTimeout(resolve, 1200))
+        // 使用 Pinia store 进行登录
+        const userStore = useUserStore()
         
-        // 模拟后端登录验证
-        const mockUsers = [
-          { username: 'admin', password: '123456', role: 'admin', name: '管理员' },
-          { username: 'user', password: '123456', role: 'user', name: '普通用户' },
-          { username: 'test@example.com', password: '123456', role: 'user', name: '测试用户' }
-        ]
+        // 调用登录接口
+        const success = await userStore.login({
+          username: this.formData.username.trim(),
+          password: this.formData.password
+        })
         
-        const user = mockUsers.find(
-          u => (u.username === this.formData.username || u.username === this.formData.username.toLowerCase()) 
-            && u.password === this.formData.password
-        )
-        
-        if (user) {
-          // 登录成功
-          this.successMessage = `登录成功！欢迎回来，${user.name}`
-          
+        // 只有真正成功（返回 true）才处理后续逻辑
+        if (success) {
           // 保存"记住我"选项
           if (this.formData.remember) {
-            localStorage.setItem('remember_user', this.formData.username)
+            localStorage.setItem('remember_user', this.formData.username.trim())
           } else {
             localStorage.removeItem('remember_user')
           }
           
-          // 保存用户信息到 localStorage（模拟 JWT token）
-          const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + btoa(JSON.stringify({
-            username: user.username,
-            role: user.role,
-            exp: Date.now() + 7200000
-          }))
+          // 获取用户信息显示欢迎消息
+          const userName = userStore.userInfo?.name || userStore.userInfo?.username || '用户'
+          this.showMessage('success', `欢迎回来，${userName}！`)
           
-          localStorage.setItem('auth_token', mockToken)
-          localStorage.setItem('user_info', JSON.stringify({
-            username: user.username,
-            name: user.name,
-            role: user.role,
-            loginTime: new Date().toISOString()
-          }))
-          
-          // 显示成功模态框
-          this.showMessage('success', `欢迎回来，${user.name}！`)
+          // 注意：成功消息模态框会在倒计时后自动跳转（在 closeMessageModal 中处理）
         } else {
-          // 登录失败 - 显示错误模态框
-          this.showMessage('error', '用户名或密码错误，请检查后重试')
-          // 清空密码
+          // 如果返回 false，说明登录失败但不抛异常，显示错误信息
+          this.showMessage('error', '登录失败，请检查用户名和密码')
           this.formData.password = ''
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('登录错误:', error)
-        this.showMessage('error', '登录失败，请检查网络连接后重试')
+        // 显示具体错误信息
+        const errorMessage = error.message || '登录失败，请检查网络连接后重试'
+        this.showMessage('error', errorMessage)
+        // 清空密码
+        this.formData.password = ''
       } finally {
         this.loading = false
       }
@@ -380,58 +375,56 @@ export default {
       this.isDark = savedTheme === 'dark'
       document.documentElement.classList.toggle('dark', this.isDark)
     },
-    socialLogin(provider) {
+    socialLogin(provider: 'wechat' | 'github') {
       if (this.loading) return
       
-      this.clearError()
-      this.successMessage = ''
-      
       // 模拟第三方登录
-      const providerNames = {
+      const providerNames: Record<'wechat' | 'github', string> = {
         'wechat': '微信',
         'github': 'GitHub'
       }
       
       this.loading = true
-      this.successMessage = `正在跳转到${providerNames[provider]}登录...`
       
       setTimeout(() => {
         this.loading = false
-        this.successMessage = ''
         console.log(`${provider}登录功能开发中`)
-        this.errorMessage = `${providerNames[provider]}登录功能开发中，敬请期待`
+        this.showMessage('error', `${providerNames[provider]}登录功能开发中，敬请期待`)
       }, 1500)
     },
     goToRegister() {
       if (this.loading) return
       this.$router.push('/register').catch(() => {
         console.log('注册页面开发中')
-        this.errorMessage = '注册页面开发中，敬请期待'
+        this.showMessage('error', '注册页面开发中，敬请期待')
       })
     },
     closeForgotModal() {
       this.showForgotModal = false
       this.resetEmail = ''
     },
-    handleResetPassword() {
+    async handleResetPassword() {
       if (!this.resetEmail) return
       
       // 简单的邮箱格式验证
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(this.resetEmail)) {
-        this.errorMessage = '请输入有效的邮箱地址'
+        this.showMessage('error', '请输入有效的邮箱地址')
         return
       }
       
-      this.closeForgotModal()
-      
-      // 模拟发送重置邮件
-      this.successMessage = `重置密码邮件已发送至 ${this.resetEmail}，请查收`
-      
-      // 3秒后清除成功提示
-      setTimeout(() => {
-        this.successMessage = ''
-      }, 3000)
+      try {
+        // 调用忘记密码 API
+        const { forgotPassword } = await import('@/api/auth')
+        await forgotPassword(this.resetEmail)
+        
+        this.closeForgotModal()
+        this.showMessage('success', `重置密码邮件已发送至 ${this.resetEmail}，请查收`)
+      } catch (error: any) {
+        console.error('重置密码错误:', error)
+        const errorMessage = error.message || '发送失败，请稍后重试'
+        this.showMessage('error', errorMessage)
+      }
     }
   },
   mounted() {
@@ -532,6 +525,7 @@ export default {
   line-height: 1.1;
   margin-bottom: 24px;
   background: linear-gradient(to right, #fff, rgba(255,255,255,0.8));
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

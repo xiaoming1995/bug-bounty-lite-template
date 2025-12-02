@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { logout } from '@/api/auth'
 
 const activeKey = ref('home')
 const userDropdownVisible = ref(false)
 const router = useRouter()
-const userInfo = ref({
-  name: '安全研究员',
-  avatar: ''
+const userStore = useUserStore()
+
+// 从 store 获取用户信息
+const userInfo = computed(() => {
+  return {
+    name: userStore.userInfo?.name || userStore.userInfo?.username || '安全研究员',
+    avatar: userStore.userInfo?.avatar || ''
+  }
 })
 
 const userMenuOptions = ref([
@@ -36,11 +43,13 @@ const handleMenuClick = (data: Object) => {
   }
 }
 
-const handleUserMenuClick = (item: any) => {
-  console.log('用户菜单点击:', item.id)
+const handleUserMenuClick = async (data: any) => {
+  // DevUI menu 的 select 事件会传递 { id, key } 对象
+  const itemId = data.id || data.key
+  console.log('用户菜单点击:', itemId)
   userDropdownVisible.value = false
 
-  switch(item.id) {
+  switch(itemId) {
     case 'userinfo':
       router.push('/userinfo')
       break
@@ -52,8 +61,34 @@ const handleUserMenuClick = (item: any) => {
       break
     case 'logout':
       // 处理退出登录
-      console.log('用户退出登录')
+      await handleLogout()
       break
+  }
+}
+
+// 注销登录处理
+const handleLogout = async () => {
+  try {
+    // 调用登出 API（如果后端需要）
+    await logout()
+  } catch (error) {
+    console.error('登出 API 调用失败:', error)
+    // 即使 API 调用失败，也继续清除本地数据
+  } finally {
+    // 清除本地认证信息
+    userStore.clearAuth()
+    
+    // 跳转到登录页
+    router.push({
+      name: 'Login',
+      query: {
+        redirect: router.currentRoute.value.fullPath
+      }
+    }).catch((err) => {
+      console.error('跳转登录页失败:', err)
+      // 如果路由跳转失败，使用 window.location
+      window.location.href = '/login'
+    })
   }
 }
 
@@ -120,19 +155,27 @@ const handleSubmitVulnerability = () => {
         提交漏洞
       </d-button>
         <div class="user-dropdown-container">
-        <d-menu mode="horizontal" class="user-trigger" :router= true>
-                <d-avatar :width="32" :height="32" :icon="!userInfo.avatar && 'user'">
-                    <img v-if="userInfo.avatar" :src="userInfo.avatar" alt="avatar">
-                </d-avatar>
-                <d-sub-menu :title="userInfo.name" key="course" class="username">
-                <d-menu-item   v-for="item in userMenuOptions" :key="item.id" :id="item.id">
-                     <template #icon>
-                        <d-icon :name="item.icon" />
-                    </template>
-                    {{ item.name }} 
-                </d-menu-item>
-              
-                </d-sub-menu>
+        <d-menu 
+          mode="horizontal" 
+          class="user-trigger" 
+          :router="false"
+          @select="handleUserMenuClick"
+        >
+          <d-avatar :width="32" :height="32" :icon="!userInfo.avatar && 'user'">
+            <img v-if="userInfo.avatar" :src="userInfo.avatar" alt="avatar">
+          </d-avatar>
+          <d-sub-menu :title="userInfo.name" key="course" class="username">
+            <d-menu-item   
+              v-for="item in userMenuOptions" 
+              :key="item.id" 
+              :id="item.id"
+            >
+              <template #icon>
+                <d-icon :name="item.icon" />
+              </template>
+              {{ item.name }} 
+            </d-menu-item>
+          </d-sub-menu>
         </d-menu>
     </div>
       <div class="user-dropdown-container">
