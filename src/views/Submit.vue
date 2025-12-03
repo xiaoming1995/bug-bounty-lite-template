@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import Header from './Public/Header.vue'
-import VulnerabilityEditor from '@/components/VulnerabilityEditor.vue'
 
 // 表单数据
 const formData = reactive({
@@ -13,19 +12,12 @@ const formData = reactive({
   riskLevel: '',
   vulnerabilityLink: '',
   vulnerabilityDetails: '',
-  attachments: [],
-  verificationCode: ''
+  attachments: []
 })
 
 // 响应式状态
 const loading = ref(false)
 const agreeTerms = ref(false)
-
-// 活动类型选项
-const activityTypeOptions = [
-  { label: '参与活动', value: '参与活动' },
-  { label: '当前暂无活动', value: '当前暂无活动' }
-]
 
 // 项目名称选项
 const projectNameOptions = [
@@ -144,8 +136,7 @@ const resetForm = () => {
     riskLevel: '',
     vulnerabilityLink: '',
     vulnerabilityDetails: '',
-    attachments: [],
-    verificationCode: ''
+    attachments: []
   })
   agreeTerms.value = false
 }
@@ -154,9 +145,100 @@ const handleFileUpload = (files: FileList) => {
   console.log('上传文件:', files)
 }
 
-const refreshCaptcha = () => {
-  console.log('刷新验证码')
+// 隐藏所有错误提示的函数
+const hideErrorMessages = () => {
+  nextTick(() => {
+    // 隐藏所有 popover 和 tooltip
+    const popovers = document.querySelectorAll('.devui-popover, .devui-tooltip, [class*="popover"], [class*="tooltip"]')
+    popovers.forEach(el => {
+      const htmlEl = el as HTMLElement
+      htmlEl.style.display = 'none'
+      htmlEl.style.visibility = 'hidden'
+      htmlEl.style.opacity = '0'
+      htmlEl.style.pointerEvents = 'none'
+    })
+    
+    // 移除所有输入框的错误类名和样式
+    const formElement = document.querySelector('.vulnerability-form')
+    if (formElement) {
+      // 移除 error 类名
+      const errorElements = formElement.querySelectorAll('[class*="error"]')
+      errorElements.forEach(el => {
+        const htmlEl = el as HTMLElement
+        // 移除 error 相关的类名
+        htmlEl.className = htmlEl.className
+          .split(' ')
+          .filter(cls => !cls.includes('error'))
+          .join(' ')
+        
+        // 移除 error 属性
+        htmlEl.removeAttribute('error')
+        
+        // 强制设置边框颜色
+        if (htmlEl.tagName === 'INPUT' || htmlEl.tagName === 'TEXTAREA' || htmlEl.tagName === 'SELECT') {
+          htmlEl.style.borderColor = '#d9d9d9'
+          htmlEl.style.boxShadow = 'none'
+        }
+      })
+      
+      // 移除输入框包装器的错误状态
+      const inputWrappers = formElement.querySelectorAll('.devui-input-wrapper, .devui-select-input, .devui-textarea-wrapper')
+      inputWrappers.forEach(wrapper => {
+        const htmlEl = wrapper as HTMLElement
+        htmlEl.className = htmlEl.className
+          .split(' ')
+          .filter(cls => !cls.includes('error'))
+          .join(' ')
+        htmlEl.style.borderColor = '#d9d9d9'
+        htmlEl.style.boxShadow = 'none'
+      })
+    }
+  })
 }
+
+// 监听 DOM 变化，自动隐藏错误提示
+let observer: MutationObserver | null = null
+
+onMounted(() => {
+  // 初始隐藏
+  hideErrorMessages()
+  
+  // 创建 MutationObserver 监听 DOM 变化
+  observer = new MutationObserver(() => {
+    hideErrorMessages()
+  })
+  
+  // 开始观察整个表单区域
+  const formElement = document.querySelector('.vulnerability-form')
+  if (formElement) {
+    observer.observe(formElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    })
+  }
+  
+  // 监听所有 blur 事件，阻止验证
+  const formItems = document.querySelectorAll('.vulnerability-form .devui-form-item')
+  formItems.forEach(item => {
+    const inputs = item.querySelectorAll('input, textarea, select')
+    inputs.forEach(input => {
+      input.addEventListener('blur', (e) => {
+        e.stopPropagation()
+        setTimeout(() => {
+          hideErrorMessages()
+        }, 0)
+      }, true)
+    })
+  })
+})
+
+onUnmounted(() => {
+  if (observer) {
+    observer.disconnect()
+  }
+})
 </script>
 
 <template>
@@ -166,22 +248,15 @@ const refreshCaptcha = () => {
     <div class="main-content">
       <!-- 左侧表单区域 -->
       <div class="form-section">
-        <div class="form-header">
-          <div class="activity-tabs">
-            <d-radio-group v-model="formData.activityType" direction="horizontal">
-              <d-radio
-                v-for="option in activityTypeOptions"
-                :key="option.value"
-                :value="option.value"
-                :class="{ 'active-tab': formData.activityType === option.value }"
-              >
-                {{ option.label }}
-              </d-radio>
-            </d-radio-group>
-          </div>
-        </div>
-
-        <d-form :data="formData" layout="vertical" class="vulnerability-form">
+        <d-form 
+          :data="formData" 
+          layout="vertical" 
+          class="vulnerability-form"
+          :rules="{}"
+          :validate-on-blur="false"
+          :validate-on-change="false"
+          :validate-on-submit="false"
+        >
           <!-- 项目名称 -->
           <d-form-item label="项目名称" required>
             <d-select
@@ -221,7 +296,7 @@ const refreshCaptcha = () => {
           </d-form-item>
 
           <!-- 危害自评 -->
-          <d-form-item label="危害自评" required>
+          <d-form-item label="危害自评">
             <d-radio-group v-model="formData.riskLevel" direction="horizontal">
               <d-radio
                 v-for="option in riskLevelOptions"
@@ -245,9 +320,12 @@ const refreshCaptcha = () => {
 
           <!-- 漏洞详情 -->
           <d-form-item label="漏洞详情" required>
-            <VulnerabilityEditor
+            <d-textarea
               v-model="formData.vulnerabilityDetails"
               placeholder="请详细描述漏洞信息..."
+              :rows="8"
+              :maxlength="10000"
+              show-word-limit
             />
           </d-form-item>
 
@@ -274,23 +352,6 @@ const refreshCaptcha = () => {
                 <p>附件上传大小限制8M</p>
                 <p>/apk/ipa/aar/zip/jar/rar/7z</p>
                 <p>附件上传大小限制500M</p>
-              </div>
-            </div>
-          </d-form-item>
-
-          <!-- 验证码 -->
-          <d-form-item label="验证码" required>
-            <div class="captcha-section">
-              <d-input
-                v-model="formData.verificationCode"
-                placeholder="验证码不区分大小写"
-                class="captcha-input"
-              />
-              <div class="captcha-container">
-                <div class="captcha-image" @click="refreshCaptcha">
-                  <span class="captcha-placeholder">验证码图片</span>
-                </div>
-                <span class="refresh-link" @click="refreshCaptcha">换一张</span>
               </div>
             </div>
           </d-form-item>
@@ -391,51 +452,122 @@ const refreshCaptcha = () => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.form-header {
-  margin-bottom: 24px;
 
-  .activity-tabs {
-    margin-bottom: 16px;
+.vulnerability-form {
+  // 强制隐藏所有 DevUI 验证错误提示（包括动态创建的）
+  :deep(.devui-popover),
+  :deep(.devui-tooltip),
+  :deep(.devui-form-item-error-tip),
+  :deep(.devui-form-item-message),
+  :deep(.devui-form-item-error),
+  :deep([class*="error-tip"]),
+  :deep([class*="error-message"]),
+  :deep([class*="popover"]),
+  :deep([class*="tooltip"]),
+  :deep([id*="popover"]),
+  :deep([id*="tooltip"]),
+  :deep([role="tooltip"]),
+  :deep([role="popover"]) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    left: -9999px !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+  
+  // 全局样式：隐藏所有可能的错误提示
+  :deep(*) {
+    &[class*="error-tip"],
+    &[class*="error-message"],
+    &[class*="popover"],
+    &[class*="tooltip"],
+    &[id*="popover"],
+    &[id*="tooltip"] {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+    }
+  }
 
-    :deep(.devui-radio-group) {
-      .devui-radio {
-        margin-right: 0;
-
-        .devui-radio-material {
-          padding: 8px 16px;
-          border: 1px solid #d9d9d9;
-          border-radius: 0;
-          background: #f5f5f5;
-
-          &:first-child {
-            border-top-left-radius: 4px;
-            border-bottom-left-radius: 4px;
-          }
-
-          &:last-child {
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-          }
-
-          &.devui-radio-checked {
-            background: #ff4444;
-            color: white;
-            border-color: #ff4444;
-          }
-        }
+  // 禁用所有输入框的错误状态 - 强制覆盖红色边框
+  :deep(.devui-input-wrapper.error),
+  :deep(.devui-input-wrapper-error),
+  :deep(.devui-input.error),
+  :deep(.devui-input-error),
+  :deep(.devui-input[error]),
+  :deep(.devui-form-item.error),
+  :deep(.devui-form-item-error),
+  :deep(.devui-select.error),
+  :deep(.devui-select-error),
+  :deep(.devui-select-input.error),
+  :deep(.devui-select-input-error),
+  :deep(.devui-textarea.error),
+  :deep(.devui-textarea-error),
+  :deep(input.error),
+  :deep(input[error]),
+  :deep(textarea.error),
+  :deep(textarea[error]),
+  :deep(select.error),
+  :deep(select[error]),
+  :deep([class*="error"] input),
+  :deep([class*="error"] textarea),
+  :deep([class*="error"] select) {
+    border-color: #d9d9d9 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background-color: white !important;
+  }
+  
+  // 移除错误状态的 focus 样式
+  :deep(.devui-input-wrapper.error:focus),
+  :deep(.devui-input-wrapper-error:focus),
+  :deep(.devui-input.error:focus),
+  :deep(.devui-input-error:focus),
+  :deep(.devui-input[error]:focus),
+  :deep(.devui-select.error:focus),
+  :deep(.devui-select-error:focus),
+  :deep(.devui-select-input.error:focus),
+  :deep(.devui-select-input-error:focus),
+  :deep(.devui-textarea.error:focus),
+  :deep(.devui-textarea-error:focus),
+  :deep(input.error:focus),
+  :deep(input[error]:focus),
+  :deep(textarea.error:focus),
+  :deep(textarea[error]:focus) {
+    border-color: #5e7ce0 !important;
+    box-shadow: 0 0 0 2px rgba(94, 124, 224, 0.2) !important;
+    outline: none !important;
+  }
+  
+  // 移除 hover 时的错误状态
+  :deep(.devui-input-wrapper.error:hover),
+  :deep(.devui-input-wrapper-error:hover),
+  :deep(.devui-input.error:hover),
+  :deep(.devui-input-error:hover),
+  :deep(.devui-select.error:hover),
+  :deep(.devui-select-error:hover),
+  :deep(.devui-textarea.error:hover),
+  :deep(.devui-textarea-error:hover) {
+    border-color: #bfbfbf !important;
+  }
+  
+  // 移除所有可能的错误类名
+  :deep(.devui-form-item) {
+    &[class*="error"] {
+      .devui-input,
+      .devui-textarea,
+      .devui-select,
+      .devui-input-wrapper,
+      .devui-select-input {
+        border-color: #d9d9d9 !important;
       }
     }
   }
 
-  .form-title {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: #333;
-  }
-}
-
-.vulnerability-form {
   :deep(.devui-form-item) {
     margin-bottom: 20px;
 
@@ -496,14 +628,6 @@ const refreshCaptcha = () => {
   }
 }
 
-// 富文本编辑器样式
-:deep(.rich-text-editor) {
-  .quill-editor {
-    .ql-editor {
-      font-family: inherit;
-    }
-  }
-}
 
 // 上传区域
 .upload-section {
@@ -543,51 +667,6 @@ const refreshCaptcha = () => {
 
     p {
       margin: 4px 0;
-    }
-  }
-}
-
-// 验证码区域
-.captcha-section {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-
-  .captcha-input {
-    width: 200px;
-  }
-
-  .captcha-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    .captcha-image {
-      width: 80px;
-      height: 32px;
-      border: 1px solid #d9d9d9;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f5f5f5;
-      cursor: pointer;
-
-      .captcha-placeholder {
-        font-size: 12px;
-        color: #999;
-      }
-    }
-
-    .refresh-link {
-      color: #5e7ce0;
-      font-size: 12px;
-      cursor: pointer;
-      text-decoration: underline;
-
-      &:hover {
-        color: #3a8ee6;
-      }
     }
   }
 }
@@ -765,13 +844,5 @@ const refreshCaptcha = () => {
     }
   }
 
-  .captcha-section {
-    flex-direction: column;
-    align-items: flex-start;
-
-    .captcha-input {
-      width: 100%;
-    }
-  }
 }
 </style>

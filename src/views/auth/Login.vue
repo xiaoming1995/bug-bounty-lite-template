@@ -285,7 +285,7 @@ export default {
         
         if (this.countdown <= 0) {
           if (this.countdownTimer) {
-            clearInterval(this.countdownTimer)
+          clearInterval(this.countdownTimer)
           }
           this.countdownTimer = null
           this.closeMessageModal()

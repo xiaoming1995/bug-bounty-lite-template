@@ -96,9 +96,21 @@ const handleToggle =  (val :string) => {
         console.log(val)
 }
 
+const isSubmitting = ref(false)
+
 const handleSubmitVulnerability = () => {
-  // 跳转到sublime路由
-  router.push('/submit')
+  // 防止重复点击
+  if (isSubmitting.value) return
+  
+  isSubmitting.value = true
+  
+  // 跳转到提交漏洞页面
+  router.push('/submit').finally(() => {
+    // 延迟重置状态，让用户看到点击反馈
+    setTimeout(() => {
+      isSubmitting.value = false
+    }, 300)
+  })
 }
 
 </script>
@@ -145,15 +157,14 @@ const handleSubmitVulnerability = () => {
 
     <!-- 右侧功能区 - 重点修复区域 -->
     <div class="header-right">
-      <d-button
-        bs-style="primary"
-        bs-size="sm"
-        class="submit-btn"
+      <button
+        class="submit-vuln-btn"
+        :class="{ 'is-loading': isSubmitting }"
+        :disabled="isSubmitting"
         @click="handleSubmitVulnerability"
       >
-        <template #icon><d-icon name="plus"/></template>
         提交漏洞
-      </d-button>
+      </button>
         <div class="user-dropdown-container">
         <d-menu 
           mode="horizontal" 
@@ -220,8 +231,62 @@ const handleSubmitVulnerability = () => {
     align-items: center;
     justify-content: flex-end;
     min-width: 200px;
+    gap: 16px;
     
-    .submit-btn { margin-right: 16px; }
+    // 提交漏洞按钮 - 简洁大气风格
+    .submit-vuln-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #1f2937;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      user-select: none;
+      line-height: 1.5;
+      text-align: center;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      
+      // 悬停效果 - 简洁的加深效果
+      &:hover:not(:disabled) {
+        background: #f9fafb;
+        border-color: #d1d5db;
+        color: #111827;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      }
+      
+      // 点击效果 - 轻微下压
+      &:active:not(:disabled) {
+        transform: scale(0.98);
+        background: #f3f4f6;
+        border-color: #9ca3af;
+      }
+      
+      // 加载状态
+      &.is-loading {
+        pointer-events: none;
+        opacity: 0.6;
+      }
+      
+      // 禁用状态
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #f9fafb;
+      }
+      
+      // 焦点状态
+      &:focus-visible {
+        outline: 2px solid rgba(31, 41, 55, 0.2);
+        outline-offset: 2px;
+      }
+    }
 
     .user-dropdown-container {
       position: relative;
@@ -268,12 +333,34 @@ const handleSubmitVulnerability = () => {
 
 @media (max-width: 768px) {
   .header-container {
+    padding: 0 16px;
+    
+    .title, .username { 
+      display: none; 
+    }
+    
+    .header-right {
+      gap: 12px;
+      
+      .submit-vuln-btn {
+        padding: 10px 16px;
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .header-container {
     padding: 0 12px;
-    .title, .username { display: none; }
-    .submit-btn {
-      padding: 0 8px;
-      margin-right: 8px;
-      :deep(.devui-button-content) span { display: none; }
+    
+    .header-right {
+      gap: 8px;
+      
+      .submit-vuln-btn {
+        padding: 10px;
+        min-width: 44px;
+      }
     }
   }
 }
