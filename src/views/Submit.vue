@@ -53,14 +53,6 @@ const vulnerabilityTypeOptions = [
   { label: '其他', value: '其他' }
 ]
 
-// 终止原因选项
-const terminationReasonOptions = [
-  { label: '其他危害等', value: '其他危害等' },
-  { label: '无法复现', value: '无法复现' },
-  { label: '重复提交', value: '重复提交' },
-  { label: '不符合要求', value: '不符合要求' }
-]
-
 // 风险等级选项
 const riskLevelOptions = [
   { label: '无危害', value: '无危害' },
@@ -85,6 +77,11 @@ const handleSubmit = async () => {
 
   if (!formData.vulnerabilityType) {
     alert('请选择漏洞类型')
+    return
+  }
+
+  if (!formData.terminationReason.trim()) {
+    alert('请填写漏洞危害')
     return
   }
 
@@ -286,17 +283,19 @@ onUnmounted(() => {
             />
           </d-form-item>
 
-          <!-- 漏洞终止运行的危害 -->
-          <d-form-item label="漏洞终止运行的危害">
-            <d-select
+          <!-- 漏洞危害 -->
+          <d-form-item label="漏洞危害" required>
+            <d-textarea
               v-model="formData.terminationReason"
-              :options="terminationReasonOptions"
-              placeholder="其他危害等"
+              placeholder="请填写漏洞危害描述"
+              :rows="6"
+              :maxlength="500"
+              show-word-limit
             />
           </d-form-item>
 
           <!-- 危害自评 -->
-          <d-form-item label="危害自评">
+          <d-form-item label="危害自评" required>
             <d-radio-group v-model="formData.riskLevel" direction="horizontal">
               <d-radio
                 v-for="option in riskLevelOptions"
