@@ -62,3 +62,8 @@ export const CNNVD_API = {
   SYNC: '/cnnvd/sync'
 }
 
+// 项目相关 API
+export const PROJECT_API = {
+  LIST: '/v1/projects'
+}
+

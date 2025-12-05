@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import Header from './Public/Header.vue'
+import { get } from '../utils/request'
+import { PROJECT_API } from '../api/config'
 
 // 表单数据
 const formData = reactive({
@@ -18,29 +20,75 @@ const formData = reactive({
 // 响应式状态
 const loading = ref(false)
 const agreeTerms = ref(false)
+const projectLoading = ref(false)
 
-// 项目名称选项
-const projectNameOptions = [
-  { label: '请选择项目', value: '' },
-  { label: '百度搜索', value: '百度搜索' },
-  { label: '百度地图', value: '百度地图' },
-  { label: '百度网盘', value: '百度网盘' },
-  { label: '百度贴吧', value: '百度贴吧' },
-  { label: '百度知道', value: '百度知道' },
-  { label: '百度文库', value: '百度文库' },
-  { label: '百度百科', value: '百度百科' },
-  { label: '百度翻译', value: '百度翻译' },
-  { label: '百度云', value: '百度云' },
-  { label: '百度APP', value: '百度APP' },
-  { label: '百度小程序', value: '百度小程序' },
-  { label: '百度智能云', value: '百度智能云' },
-  { label: '百度开放平台', value: '百度开放平台' },
-  { label: '百度开发者中心', value: '百度开发者中心' },
-  { label: '百度统计', value: '百度统计' },
-  { label: '百度推广', value: '百度推广' },
-  { label: '百度商桥', value: '百度商桥' },
-  { label: '其他百度产品', value: '其他百度产品' }
+// 项目名称选项（动态加载）
+const projectNameOptions = ref<Array<{ label: string; value: string }>>([
+  { label: '请选择项目', value: '' }
+])
+
+// 默认项目列表（接口不可用时的回退选项）
+const defaultProjects = [
+  '百度搜索', '百度地图', '百度网盘', '百度贴吧', '百度知道',
+  '百度文库', '百度百科', '百度翻译', '百度云', '百度APP',
+  '百度小程序', '百度智能云', '百度开放平台', '其他百度产品'
 ]
+
+// 项目接口返回类型
+interface ProjectItem {
+  id: number
+  created_at: string
+  updated_at: string
+  name: string
+  description: string
+  note: string
+  status: string
+}
+
+interface ProjectResponse {
+  data: ProjectItem[]
+  page: number
+  total: number
+}
+
+// 加载项目列表
+const loadProjects = async () => {
+  projectLoading.value = true
+  try {
+    const response = await get<ProjectResponse>(PROJECT_API.LIST)
+    
+    // 解析返回数据：{ data: [...], page: number, total: number }
+    const projects = response?.data || []
+    
+    // 检查数据是否有效
+    if (projects.length > 0) {
+      const options = projects.map(project => ({
+        label: project.name,
+        value: project.name
+      }))
+      projectNameOptions.value = [
+        ...options
+      ]
+    } else {
+      // 响应为空时使用默认选项
+      useDefaultProjects()
+    }
+  } catch (error) {
+    console.error('加载项目列表失败:', error)
+    // 加载失败时使用默认选项
+    useDefaultProjects()
+  } finally {
+    projectLoading.value = false
+  }
+}
+
+// 使用默认项目列表
+const useDefaultProjects = () => {
+  projectNameOptions.value = [
+    { label: '请选择项目', value: '' },
+    ...defaultProjects.map(name => ({ label: name, value: name }))
+  ]
+}
 
 // 漏洞类型选项
 const vulnerabilityTypeOptions = [
@@ -197,6 +245,9 @@ const hideErrorMessages = () => {
 let observer: MutationObserver | null = null
 
 onMounted(() => {
+  // 加载项目列表
+  loadProjects()
+  
   // 初始隐藏
   hideErrorMessages()
   
@@ -259,7 +310,8 @@ onUnmounted(() => {
             <d-select
               v-model="formData.projectName"
               :options="projectNameOptions"
-              placeholder="请选择项目"
+              :placeholder="projectLoading ? '加载中...' : '请选择项目'"
+              :disabled="projectLoading"
               class="project-select"
             />
           </d-form-item>
