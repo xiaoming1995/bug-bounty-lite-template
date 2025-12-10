@@ -2,14 +2,14 @@
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import Header from './Public/Header.vue'
 import { get, post } from '../utils/request'
-import { PROJECT_API, REPORT_API } from '../api/config'
+import { PROJECT_API, REPORT_API, CONFIG_API } from '../api/config'
 
 // 表单数据
 const formData = reactive({
   activityType: '参与活动',
   project_id: null as number | null,
   vulnerabilityName: '',
-  vulnerabilityType: '',
+  vulnerabilityType: null as number | null,
   terminationReason: '',
   riskLevel: '',
   vulnerabilityLink: '',
@@ -86,16 +86,61 @@ const handleProjectLoadFailed = () => {
   ]
 }
 
-// 漏洞类型选项
-const vulnerabilityTypeOptions = [
-  { label: 'SQL注入', value: 'SQL注入' },
-  { label: 'XSS跨站脚本', value: 'XSS跨站脚本' },
-  { label: '文件上传', value: '文件上传' },
-  { label: '命令执行', value: '命令执行' },
-  { label: '信息泄露', value: '信息泄露' },
-  { label: '逻辑漏洞', value: '逻辑漏洞' },
-  { label: '其他', value: '其他' }
-]
+// 漏洞类型选项（动态加载）
+const vulnerabilityTypeOptions = ref<Array<{ name: string; value: number | null }>>([
+  { name: '请选择漏洞类型', value: null }
+])
+
+// 漏洞类型加载状态
+const vulnerabilityTypeLoading = ref(false)
+const vulnerabilityTypeLoadFailed = ref(false)
+
+// 漏洞类型接口返回类型
+interface VulnerabilityTypeItem {
+  id: number
+  created_at: string
+  updated_at: string
+  name: string
+}
+
+interface VulnerabilityTypeResponse {
+  data: VulnerabilityTypeItem[]
+  page: number
+  total: number
+}
+
+// 加载漏洞类型列表
+const loadVulnerabilityTypes = async () => {
+  vulnerabilityTypeLoading.value = true
+  try {
+    const response = await get<VulnerabilityTypeResponse>(CONFIG_API.VULNERABILITY_TYPE)
+    
+    const types = response?.data || []
+    
+    if (types.length > 0) {
+      const options = types.map(type => ({
+        name: type.name,
+        value: type.id
+      }))
+      vulnerabilityTypeOptions.value = [...options]
+    } else {
+      handleVulnerabilityTypeLoadFailed()
+    }
+  } catch (error) {
+    console.error('加载漏洞类型失败:', error)
+    handleVulnerabilityTypeLoadFailed()
+  } finally {
+    vulnerabilityTypeLoading.value = false
+  }
+}
+
+// 漏洞类型加载失败时的处理
+const handleVulnerabilityTypeLoadFailed = () => {
+  vulnerabilityTypeLoadFailed.value = true
+  vulnerabilityTypeOptions.value = [
+    { name: '加载失败，请刷新页面重试', value: null }
+  ]
+}
 
 // 风险等级选项
 const riskLevelOptions = [
@@ -155,7 +200,7 @@ const handleSubmit = async () => {
     const submitData = {
       project_id: formData.project_id,
       vulnerability_name: formData.vulnerabilityName,
-      vulnerability_type: formData.vulnerabilityType,
+      vulnerability_type_id: formData.vulnerabilityType,
       harm_description: formData.terminationReason,
       risk_level: formData.riskLevel,
       vulnerability_link: formData.vulnerabilityLink,
@@ -182,7 +227,7 @@ const resetForm = () => {
     activityType: '参与活动',
     project_id: null,
     vulnerabilityName: '',
-    vulnerabilityType: '',
+    vulnerabilityType: null,
     terminationReason: '',
     riskLevel: '',
     vulnerabilityLink: '',
@@ -251,8 +296,9 @@ const hideErrorMessages = () => {
 let observer: MutationObserver | null = null
 
 onMounted(() => {
-  // 加载项目列表
+  // 加载项目列表和漏洞类型
   loadProjects()
+  loadVulnerabilityTypes()
   
   // 初始隐藏
   hideErrorMessages()
@@ -337,7 +383,8 @@ onUnmounted(() => {
             <d-select
               v-model="formData.vulnerabilityType"
               :options="vulnerabilityTypeOptions"
-              placeholder="请选择"
+              :placeholder="vulnerabilityTypeLoading ? '加载中...' : (vulnerabilityTypeLoadFailed ? '加载失败' : '请选择漏洞类型')"
+              :disabled="vulnerabilityTypeLoading || vulnerabilityTypeLoadFailed"
             />
           </d-form-item>
 

@@ -49,8 +49,9 @@ export const USER_API = {
 
 // 报告相关 API
 export const REPORT_API = {
-  LIST: '/reports',
-  DETAIL: (id: string | number) => `/reports/${id}`,
+  LIST: '/v1/reports',
+  DETAIL: (id: string | number) => `/v1/reports/${id}`,
+  CREATE: '/v1/reports',
   WEEKLY: '/reports/weekly',
   MONTHLY: '/reports/monthly'
 }
@@ -65,5 +66,10 @@ export const CNNVD_API = {
 // 项目相关 API
 export const PROJECT_API = {
   LIST: '/v1/projects'
+}
+
+// 配置相关 API
+export const CONFIG_API = {
+  VULNERABILITY_TYPE: '/v1/configs/vulnerability_type'
 }
 
