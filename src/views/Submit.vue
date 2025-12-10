@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import Header from './Public/Header.vue'
-import { get } from '../utils/request'
-import { PROJECT_API } from '../api/config'
+import { get, post } from '../utils/request'
+import { PROJECT_API, REPORT_API } from '../api/config'
 
 // 表单数据
 const formData = reactive({
   activityType: '参与活动',
-  projectName: '',
+  project_id: null as number | null,
   vulnerabilityName: '',
   vulnerabilityType: '',
   terminationReason: '',
@@ -23,16 +23,12 @@ const agreeTerms = ref(false)
 const projectLoading = ref(false)
 
 // 项目名称选项（动态加载）
-const projectNameOptions = ref<Array<{ label: string; value: string }>>([
-  { label: '请选择项目', value: '' }
+const projectNameOptions = ref<Array<{ name: string; value: number | null }>>([
+  { name: '请选择项目', value: null }
 ])
 
-// 默认项目列表（接口不可用时的回退选项）
-const defaultProjects = [
-  '百度搜索', '百度地图', '百度网盘', '百度贴吧', '百度知道',
-  '百度文库', '百度百科', '百度翻译', '百度云', '百度APP',
-  '百度小程序', '百度智能云', '百度开放平台', '其他百度产品'
-]
+// 项目加载失败标志
+const projectLoadFailed = ref(false)
 
 // 项目接口返回类型
 interface ProjectItem {
@@ -63,30 +59,30 @@ const loadProjects = async () => {
     // 检查数据是否有效
     if (projects.length > 0) {
       const options = projects.map(project => ({
-        label: project.name,
-        value: project.name
+        name: project.name,
+        value: project.id
       }))
       projectNameOptions.value = [
         ...options
       ]
     } else {
-      // 响应为空时使用默认选项
-      useDefaultProjects()
+      // 响应为空时显示错误
+      handleProjectLoadFailed()
     }
   } catch (error) {
     console.error('加载项目列表失败:', error)
-    // 加载失败时使用默认选项
-    useDefaultProjects()
+    // 加载失败时显示错误
+    handleProjectLoadFailed()
   } finally {
     projectLoading.value = false
   }
 }
 
-// 使用默认项目列表
-const useDefaultProjects = () => {
+// 项目加载失败时的处理
+const handleProjectLoadFailed = () => {
+  projectLoadFailed.value = true
   projectNameOptions.value = [
-    { label: '请选择项目', value: '' },
-    ...defaultProjects.map(name => ({ label: name, value: name }))
+    { name: '加载失败，请刷新页面重试', value: null }
   ]
 }
 
@@ -113,7 +109,7 @@ const riskLevelOptions = [
 // 方法
 const handleSubmit = async () => {
   // 表单验证
-  if (!formData.projectName) {
+  if (!formData.project_id) {
     alert('请选择项目名称')
     return
   }
@@ -155,17 +151,27 @@ const handleSubmit = async () => {
 
   loading.value = true
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // 构建提交数据
+    const submitData = {
+      project_id: formData.project_id,
+      vulnerability_name: formData.vulnerabilityName,
+      vulnerability_type: formData.vulnerabilityType,
+      harm_description: formData.terminationReason,
+      risk_level: formData.riskLevel,
+      vulnerability_link: formData.vulnerabilityLink,
+      vulnerability_details: formData.vulnerabilityDetails
+    }
 
-    console.log('提交漏洞信息:', formData)
+    // 调用提交接口
+    await post(REPORT_API.CREATE, submitData)
+
     alert('漏洞提交成功！')
 
     // 重置表单
     resetForm()
-  } catch (error) {
+  } catch (error: any) {
     console.error('提交失败:', error)
-    alert('提交失败，请重试！')
+    alert(error.message || '提交失败，请重试！')
   } finally {
     loading.value = false
   }
@@ -174,7 +180,7 @@ const handleSubmit = async () => {
 const resetForm = () => {
   Object.assign(formData, {
     activityType: '参与活动',
-    projectName: '',
+    project_id: null,
     vulnerabilityName: '',
     vulnerabilityType: '',
     terminationReason: '',
@@ -308,10 +314,10 @@ onUnmounted(() => {
           <!-- 项目名称 -->
           <d-form-item label="项目名称" required>
             <d-select
-              v-model="formData.projectName"
+              v-model="formData.project_id"
               :options="projectNameOptions"
-              :placeholder="projectLoading ? '加载中...' : '请选择项目'"
-              :disabled="projectLoading"
+              :placeholder="projectLoading ? '加载中...' : (projectLoadFailed ? '加载失败' : '请选择项目')"
+              :disabled="projectLoading || projectLoadFailed"
               class="project-select"
             />
           </d-form-item>
