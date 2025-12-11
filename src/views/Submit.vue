@@ -11,7 +11,7 @@ const formData = reactive({
   vulnerabilityName: '',
   vulnerabilityType: null as number | null,
   terminationReason: '',
-  riskLevel: '',
+  riskLevel: null as number | null,
   vulnerabilityLink: '',
   vulnerabilityDetails: '',
   attachments: []
@@ -24,7 +24,6 @@ const projectLoading = ref(false)
 
 // 项目名称选项（动态加载）
 const projectNameOptions = ref<Array<{ name: string; value: number | null }>>([
-  { name: '请选择项目', value: null }
 ])
 
 // 项目加载失败标志
@@ -62,9 +61,7 @@ const loadProjects = async () => {
         name: project.name,
         value: project.id
       }))
-      projectNameOptions.value = [
-        ...options
-      ]
+      projectNameOptions.value = options
     } else {
       // 响应为空时显示错误
       handleProjectLoadFailed()
@@ -88,7 +85,6 @@ const handleProjectLoadFailed = () => {
 
 // 漏洞类型选项（动态加载）
 const vulnerabilityTypeOptions = ref<Array<{ name: string; value: number | null }>>([
-  { name: '请选择漏洞类型', value: null }
 ])
 
 // 漏洞类型加载状态
@@ -98,31 +94,26 @@ const vulnerabilityTypeLoadFailed = ref(false)
 // 漏洞类型接口返回类型
 interface VulnerabilityTypeItem {
   id: number
-  created_at: string
-  updated_at: string
-  name: string
-}
-
-interface VulnerabilityTypeResponse {
-  data: VulnerabilityTypeItem[]
-  page: number
-  total: number
+  created_at?: string
+  updated_at?: string
+  config_value: string
 }
 
 // 加载漏洞类型列表
 const loadVulnerabilityTypes = async () => {
   vulnerabilityTypeLoading.value = true
   try {
-    const response = await get<VulnerabilityTypeResponse>(CONFIG_API.VULNERABILITY_TYPE)
+    const response = await get<VulnerabilityTypeItem[] | { data: VulnerabilityTypeItem[] }>(CONFIG_API.VULNERABILITY_TYPE)
     
-    const types = response?.data || []
+    // 兼容两种返回格式：直接数组 或 { data: [...] }
+    const types = Array.isArray(response) ? response : (response?.data || [])
     
     if (types.length > 0) {
       const options = types.map(type => ({
-        name: type.name,
+        name: type.config_value,
         value: type.id
       }))
-      vulnerabilityTypeOptions.value = [...options]
+      vulnerabilityTypeOptions.value = options
     } else {
       handleVulnerabilityTypeLoadFailed()
     }
@@ -139,17 +130,58 @@ const handleVulnerabilityTypeLoadFailed = () => {
   vulnerabilityTypeLoadFailed.value = true
   vulnerabilityTypeOptions.value = [
     { name: '加载失败，请刷新页面重试', value: null }
-  ]
+]
 }
 
-// 风险等级选项
-const riskLevelOptions = [
-  { label: '无危害', value: '无危害' },
-  { label: '低危', value: '低危' },
-  { label: '中危', value: '中危' },
-  { label: '高危', value: '高危' },
-  { label: '严重', value: '严重' }
+// 风险等级选项（动态加载）
+const riskLevelOptions = ref<Array<{ name: string; value: number | null }>>([
+])
+
+// 风险等级加载状态
+const riskLevelLoading = ref(false)
+const riskLevelLoadFailed = ref(false)
+
+// 风险等级接口返回类型
+interface SeverityLevelItem {
+  id: number
+  created_at?: string
+  updated_at?: string
+  config_value: string
+}
+
+// 加载风险等级列表
+const loadSeverityLevels = async () => {
+  riskLevelLoading.value = true
+  try {
+    const response = await get<SeverityLevelItem[] | { data: SeverityLevelItem[] }>(CONFIG_API.SEVERITY_LEVEL)
+    
+    // 兼容两种返回格式：直接数组 或 { data: [...] }
+    const levels = Array.isArray(response) ? response : (response?.data || [])
+    
+    if (levels.length > 0) {
+      const options = levels.map(level => ({
+        name: level.config_value,
+        value: level.id
+      }))
+      riskLevelOptions.value = options
+    } else {
+      handleSeverityLevelLoadFailed()
+    }
+  } catch (error) {
+    console.error('加载风险等级失败:', error)
+    handleSeverityLevelLoadFailed()
+  } finally {
+    riskLevelLoading.value = false
+  }
+}
+
+// 风险等级加载失败时的处理
+const handleSeverityLevelLoadFailed = () => {
+  riskLevelLoadFailed.value = true
+  riskLevelOptions.value = [
+    { name: '加载失败', value: null }
 ]
+}
 
 // 方法
 const handleSubmit = async () => {
@@ -202,7 +234,7 @@ const handleSubmit = async () => {
       vulnerability_name: formData.vulnerabilityName,
       vulnerability_type_id: formData.vulnerabilityType,
       harm_description: formData.terminationReason,
-      risk_level: formData.riskLevel,
+      severity_level_id: formData.riskLevel,
       vulnerability_link: formData.vulnerabilityLink,
       vulnerability_details: formData.vulnerabilityDetails
     }
@@ -229,7 +261,7 @@ const resetForm = () => {
     vulnerabilityName: '',
     vulnerabilityType: null,
     terminationReason: '',
-    riskLevel: '',
+    riskLevel: null,
     vulnerabilityLink: '',
     vulnerabilityDetails: '',
     attachments: []
@@ -296,9 +328,10 @@ const hideErrorMessages = () => {
 let observer: MutationObserver | null = null
 
 onMounted(() => {
-  // 加载项目列表和漏洞类型
+  // 加载项目列表、漏洞类型和风险等级
   loadProjects()
   loadVulnerabilityTypes()
+  loadSeverityLevels()
   
   // 初始隐藏
   hideErrorMessages()
@@ -401,13 +434,19 @@ onUnmounted(() => {
 
           <!-- 危害自评 -->
           <d-form-item label="危害自评" required>
-            <d-radio-group v-model="formData.riskLevel" direction="horizontal">
+            <template v-if="riskLevelLoading">
+              <span class="loading-text">加载中...</span>
+            </template>
+            <template v-else-if="riskLevelLoadFailed">
+              <span class="error-text">加载失败，请刷新页面</span>
+            </template>
+            <d-radio-group v-else v-model="formData.riskLevel" direction="horizontal">
               <d-radio
                 v-for="option in riskLevelOptions"
                 :key="option.value"
                 :value="option.value"
               >
-                {{ option.label }}
+                {{ option.name }}
               </d-radio>
             </d-radio-group>
           </d-form-item>
@@ -554,6 +593,18 @@ onUnmounted(() => {
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+// 加载状态文字
+.loading-text {
+  color: #999;
+  font-size: 14px;
+}
+
+// 错误状态文字
+.error-text {
+  color: #ff4d4f;
+  font-size: 14px;
 }
 
 

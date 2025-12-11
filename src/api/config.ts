@@ -70,6 +70,7 @@ export const PROJECT_API = {
 
 // 配置相关 API
 export const CONFIG_API = {
-  VULNERABILITY_TYPE: '/v1/configs/vulnerability_type'
+  VULNERABILITY_TYPE: '/v1/configs/vulnerability_type',
+  SEVERITY_LEVEL: '/v1/configs/severity_level'
 }
 
