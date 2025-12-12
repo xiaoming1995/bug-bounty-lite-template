@@ -43,13 +43,6 @@ const loading = ref(false);
 const selectedRows = ref<ReportItem[]>([]);
 const searchKeyword = ref('');
 
-// Filter conditions
-const filterConditions = ref({
-  category: '全部风险类型',
-  product: '全部影响产品',
-  severity: '全部风险等级',
-});
-
 // Table data
 const tableData = ref<ReportItem[]>([]);
 
@@ -60,32 +53,9 @@ const pagination = ref({
   total: 0,
 });
 
-// Filter options
-const categoryOptions = [
-  { label: '全部风险类型', value: '全部风险类型' },
-  { label: '远程代码执行', value: '远程代码执行' },
-  { label: 'SQL注入', value: 'SQL注入' },
-  { label: '信息泄露', value: '信息泄露' },
-];
-
-const productOptions = [
-  { label: '全部影响产品', value: '全部影响产品' },
-  { label: 'Apache', value: 'Apache' },
-  { label: 'WordPress', value: 'WordPress' },
-  { label: 'Nginx', value: 'Nginx' },
-];
-
-const severityOptions = [
-  { label: '全部风险等级', value: '全部风险等级' },
-  { label: '高危', value: '高危' },
-  { label: '中危', value: '中危' },
-  { label: '低危', value: '低危' },
-];
-
 // 加载漏洞列表
 const loadReports = async () => {
   loading.value = true;
-  console.log('开始加载漏洞列表...');
   
   try {
     // 构建查询参数
@@ -110,51 +80,28 @@ const loadReports = async () => {
     const queryString = new URLSearchParams(filteredParams).toString();
     const url = queryString ? `${REPORT_API.LIST}?${queryString}` : REPORT_API.LIST;
     
-    console.log('请求URL:', url);
-    
     const response = await get<ReportResponse | ReportItem[]>(url);
-
-    console.log('接口返回数据:', response);
-    console.log('数据类型:', typeof response);
-    console.log('是否数组:', Array.isArray(response));
-    console.log('response 的键:', response && typeof response === 'object' ? Object.keys(response) : 'N/A');
 
     // 兼容多种返回格式
     if (Array.isArray(response)) {
       // 如果直接返回数组
-      console.log('处理数组格式，长度:', response.length);
       tableData.value = response;
       pagination.value.total = response.length;
     } else if (response && typeof response === 'object') {
       // 如果返回 { list: [...], total: ... } 格式
-      console.log('处理对象格式，response.list:', response.list);
-      console.log('处理对象格式，response.total:', response.total);
-      console.log('response.list 类型:', typeof response.list);
-      console.log('response.list 是否为数组:', Array.isArray(response.list));
-      
       const list = response.list || [];
       tableData.value = Array.isArray(list) ? list : [];
       pagination.value.total = response.total || 0;
-      
-      console.log('设置后的 tableData.value:', tableData.value);
-      console.log('设置后的 tableData.value.length:', tableData.value.length);
     } else {
-      console.log('未知格式，设置为空');
       tableData.value = [];
       pagination.value.total = 0;
     }
-    
-    console.log('最终 tableData.value:', tableData.value);
-    console.log('最终 tableData.value.length:', tableData.value.length);
-    console.log('最终 pagination.total:', pagination.value.total);
   } catch (error: any) {
     console.error('加载漏洞列表失败:', error);
-    console.error('错误详情:', error.message, error.status, error.response);
     tableData.value = [];
     pagination.value.total = 0;
   } finally {
     loading.value = false;
-    console.log('加载完成，loading:', loading.value);
   }
 };
 
@@ -178,11 +125,6 @@ const handleSearch = () => {
   loadReports();
 };
 
-const handleFilterChange = () => {
-  // 筛选时重置到第一页
-  pagination.value.pageIndex = 1;
-  loadReports();
-};
 
 const toggleSelectAll = (checked: boolean) => {
   if (checked) {
@@ -213,8 +155,8 @@ const handleBatchDelete = async () => {
   try {
     // TODO: 调用批量删除接口
     // await del(REPORT_API.BATCH_DELETE, { ids: selectedRows.value.map(r => r.id) })
-    console.log('批量删除:', selectedRows.value);
-    selectedRows.value = [];
+  console.log('批量删除:', selectedRows.value);
+  selectedRows.value = [];
     await loadReports();
   } catch (error) {
     console.error('批量删除失败:', error);
@@ -239,7 +181,7 @@ const deleteItem = async (row: ReportItem) => {
   try {
     // TODO: 调用删除接口
     // await del(REPORT_API.DELETE(row.id))
-    console.log('删除单条:', row);
+  console.log('删除单条:', row);
     await loadReports();
   } catch (error) {
     console.error('删除失败:', error);
@@ -309,15 +251,12 @@ const addNewItem = () => {
 };
 
 onMounted(async () => {
-  console.log('组件已挂载，开始加载数据...');
   try {
     await loadReports();
-    console.log('数据加载完成');
   } catch (error) {
-    console.error('onMounted 中捕获错误:', error);
+    console.error('初始化失败:', error);
   } finally {
     initialized.value = true;
-    console.log('初始化完成，initialized:', initialized.value);
   }
 });
 </script>
@@ -342,63 +281,7 @@ onMounted(async () => {
     <div class="main-card">
       <div class="toolbar-section">
         <div class="left-tools">
-          <d-dropdown class="filter-dropdown">
-            <d-button bs-style="text" class="filter-trigger">
-              {{ filterConditions.category }}
-              <template #suffix>
-                <d-icon name="chevron-down" />
-              </template>
-            </d-button>
-            <template #menu>
-              <d-dropdown-menu>
-                <d-dropdown-item
-                  v-for="option in categoryOptions"
-                  :key="option.value"
-                  @click="filterConditions.category = option.value; handleFilterChange()"
-                >
-                  {{ option.label }}
-                </d-dropdown-item>
-              </d-dropdown-menu>
-            </template>
-          </d-dropdown>
-          <d-dropdown class="filter-dropdown">
-            <d-button bs-style="text" class="filter-trigger">
-              {{ filterConditions.product }}
-              <template #suffix>
-                <d-icon name="chevron-down" />
-              </template>
-            </d-button>
-            <template #menu>
-              <d-dropdown-menu>
-                <d-dropdown-item
-                  v-for="option in productOptions"
-                  :key="option.value"
-                  @click="filterConditions.product = option.value; handleFilterChange()"
-                >
-                  {{ option.label }}
-                </d-dropdown-item>
-              </d-dropdown-menu>
-            </template>
-          </d-dropdown>
-          <d-dropdown class="filter-dropdown">
-            <d-button bs-style="text" class="filter-trigger">
-              {{ filterConditions.severity }}
-              <template #suffix>
-                <d-icon name="chevron-down" />
-              </template>
-            </d-button>
-            <template #menu>
-              <d-dropdown-menu>
-                <d-dropdown-item
-                  v-for="option in severityOptions"
-                  :key="option.value"
-                  @click="filterConditions.severity = option.value; handleFilterChange()"
-                >
-                  {{ option.label }}
-                </d-dropdown-item>
-              </d-dropdown-menu>
-            </template>
-          </d-dropdown>
+          <!-- 筛选按钮已移除 -->
         </div>
         <div class="right-tools">
           <div class="search-box">
@@ -408,8 +291,11 @@ onMounted(async () => {
               @keyup.enter="handleSearch"
               class="custom-search"
             >
+              <template #prefix>
+                <d-icon name="search" class="search-icon" />
+              </template>
               <template #suffix>
-                <d-button bs-style="text" class="search-btn" @click="handleSearch">
+                <d-button bs-style="text" class="search-btn" @click="handleSearch" title="搜索">
                   <d-icon name="search" />
                 </d-button>
               </template>
@@ -432,41 +318,40 @@ onMounted(async () => {
         </div>
         <d-icon name="close" class="close-batch" @click="toggleSelectAll(false)" />
       </div>
-      <!-- 调试信息（开发时可见） -->
-      <div v-if="false" style="padding: 10px; background: #f0f0f0; margin: 10px 0; font-size: 12px;">
-        <p>调试信息:</p>
-        <p>loading: {{ loading }}</p>
-        <p>tableData.length: {{ tableData.length }}</p>
-        <p>pagination.total: {{ pagination.total }}</p>
-        <p>tableData: {{ JSON.stringify(tableData.slice(0, 2)) }}</p>
-      </div>
       <div class="table-container">
         <table class="modern-table">
           <thead>
             <tr>
-              <th width="60px" class="checkbox-col">
+              <th class="checkbox-col">
                 <d-checkbox
                   :model-value="selectedRows.length === tableData.length && tableData.length > 0"
                   @change="toggleSelectAll"
                 />
               </th>
-              <th width="160px">ID</th>
-              <th>漏洞名称</th>
-              <th width="140px">风险类型</th>
-              <th width="120px">风险等级</th>
-              <th width="140px">创建日期</th>
-              <th width="120px" class="text-right">操作</th>
+              <th class="col-id">ID</th>
+              <th class="col-name">漏洞名称</th>
+              <th class="col-type">风险类型</th>
+              <th class="col-severity">风险等级</th>
+              <th class="col-date">创建日期</th>
+              <th class="col-actions text-right">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="7" style="text-align: center; padding: 40px;">
-                <span>加载中...</span>
+              <td colspan="7" class="empty-state">
+                <div class="empty-content">
+                  <d-icon name="loading" size="24px" color="#9ca3af" />
+                  <span>加载中...</span>
+                </div>
               </td>
             </tr>
             <tr v-else-if="tableData.length === 0">
-              <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
-                <span>暂无数据</span>
+              <td colspan="7" class="empty-state">
+                <div class="empty-content">
+                  <d-icon name="info-o" size="32px" color="#cbd5e1" />
+                  <span>暂无数据</span>
+                  <p class="empty-tip">请尝试调整筛选条件或搜索关键词</p>
+                </div>
               </td>
             </tr>
             <template v-else>
@@ -522,7 +407,7 @@ onMounted(async () => {
 <style scoped lang="scss">
 .database-page {
   padding: 24px 32px;
-  background: #fff;
+  background: #f5f7fa;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -531,7 +416,9 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e5e7eb;
   .page-title {
     h2 {
       margin: 0;
@@ -565,50 +452,259 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.06);
   overflow: hidden;
+  border: 1px solid #e5e7eb;
 }
 .toolbar-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid #f3f4f6;
   gap: 16px;
+  background: #fafbfc;
   .left-tools {
     display: flex;
     gap: 12px;
     align-items: center;
-    .filter-dropdown .filter-trigger {
+    .filter-dropdown {
+      .filter-trigger {
       font-size: 14px;
       color: #6b7280;
-      padding: 0 8px;
-      height: 32px;
-      border-radius: 4px;
-      &:hover { background: #f3f4f6; }
+        padding: 6px 12px;
+        height: 36px;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        
+        &:hover { 
+          background: #f9fafb;
+          border-color: #d1d5db;
+          color: #374151;
+        }
+        
+        &:active {
+          background: #f3f4f6;
+        }
+      }
     }
   }
   .right-tools {
     display: flex;
     gap: 12px;
     align-items: center;
-    .search-box { width: 240px; .custom-search { .d-input__inner { border-radius: 6px; padding-right: 0; } } .search-btn { color: #9ca3af; &:hover { color: #5e7ce0; } } }
-    .icon-btn { color: #9ca3af; padding: 6px; &:hover { background: #f3f4f6; color: #5e7ce0; } }
+    
+    .search-box { 
+      width: 360px;
+      position: relative;
+      
+      .custom-search { 
+        position: relative;
+        
+        :deep(.d-input__inner) { 
+          border-radius: 8px; 
+          padding: 10px 48px 10px 40px;
+          border: 1.5px solid #e5e7eb;
+          background: #fff;
+          font-size: 14px;
+          color: #374151;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+          height: 40px;
+          line-height: 20px;
+          
+          &::placeholder {
+            color: #9ca3af;
+            font-size: 14px;
+          }
+          
+          &:hover {
+            border-color: #d1d5db;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+          }
+          
+          &:focus {
+            border-color: #5e7ce0;
+            box-shadow: 0 0 0 4px rgba(94, 124, 224, 0.12), 0 2px 8px rgba(0, 0, 0, 0.1);
+            outline: none;
+          }
+        }
+        
+        :deep(.d-input__prefix) {
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          
+          .search-icon {
+            font-size: 16px;
+            color: #9ca3af;
+            transition: all 0.2s;
+          }
+        }
+        
+        :deep(.d-input__inner:focus) ~ .d-input__prefix .search-icon {
+          color: #5e7ce0;
+          transform: scale(1.1);
+        }
+        
+        :deep(.d-input__inner:hover) ~ .d-input__prefix .search-icon {
+          color: #6b7280;
+        }
+        
+        :deep(.d-input__suffix) {
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+        }
+      } 
+      
+      .search-btn { 
+        color: #9ca3af; 
+        padding: 6px;
+        border-radius: 6px;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: transparent;
+        
+        &:hover { 
+          color: #5e7ce0;
+          background: #f0f4ff;
+        }
+        
+        &:active {
+          transform: scale(0.95);
+        }
+        
+        :deep(.d-icon) {
+          font-size: 16px;
+        }
+      } 
+    }
+    
+    .icon-btn { 
+      color: #9ca3af; 
+      padding: 8px;
+      border-radius: 6px;
+      transition: all 0.2s;
+      
+      &:hover { 
+        background: #f3f4f6; 
+        color: #5e7ce0; 
+      } 
+    }
   }
 }
 .batch-bar {
-  background: #eff6ff;
-  padding: 8px 16px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #dbeafe;
+  border-bottom: 1px solid #bfdbfe;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  
+  .selected-count {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #1e40af;
+    font-weight: 500;
+    
+    .count {
+      font-weight: 600;
+      color: #1d4ed8;
+    }
+  }
+  
+  .batch-ops {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .batch-btn {
+      padding: 6px 12px;
+      border-radius: 4px;
+      transition: all 0.2s;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.8);
+      }
+      
+      &.danger:hover {
+        background: #fee2e2;
+        color: #dc2626;
+      }
+    }
+    
+    .divider {
+      width: 1px;
+      height: 20px;
+      background: #bfdbfe;
+    }
+  }
+  
+  .close-batch {
+    cursor: pointer;
+    color: #64748b;
+    transition: color 0.2s;
+    
+    &:hover {
+      color: #1e40af;
+    }
+  }
 }
 .table-container {
   flex: 1;
-  overflow: auto;
-  padding: 0 16px;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding: 16px;
+  background: #fafbfc;
+  display: flex;
+  flex-direction: column;
+  min-height: 500px; // 增加最小高度，确保数据不满时也有足够空间
+  -webkit-overflow-scrolling: touch;
+  
+  .modern-table {
+    flex-shrink: 0;
+    min-width: 800px; // 确保表格最小宽度，小屏幕时横向滚动
+    min-height: 450px; // 增加表格最小高度，让数据不满时也显得饱满
+    display: table; // 确保表格正常显示
+  }
+  
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #94a3b8;
+    }
+  }
 }
 .modern-table {
   width: 100%;
@@ -616,27 +712,762 @@ onMounted(async () => {
   border-spacing: 0;
   font-size: 14px;
   color: #374151;
-  th, td { padding: 14px 12px; text-align: left; border-bottom: 1px solid #f3f4f6; }
-  th { background-color: #f9fafb; font-weight: 600; color: #4b5563; white-space: nowrap; &:first-child { border-top-left-radius: 8px; } &:last-child { border-top-right-radius: 8px; } }
-  td { vertical-align: middle; .cve-tag { display: inline-block; background-color: #eef2ff; color: #4f46e5; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; } .vuln-title { font-weight: 500; color: #1f2937; } .vuln-type { color: #6b7280; } .severity-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; } &.danger { background-color: #fee2e2; color: #ef4444; .dot { background-color: #ef4444; } } &.warning { background-color: #fffbeb; color: #f59e0b; .dot { background-color: #f59e0b; } } &.success { background-color: #ecfdf5; color: #10b981; .dot { background-color: #10b981; } } &.primary { background-color: #e0f2fe; color: #0ea5e9; .dot { background-color: #0ea5e9; } } } .date-text { color: #6b7280; } }
-  tr.selected { background-color: #f7f9ff; }
-  .checkbox-col { padding-left: 24px; }
-  .text-right { text-align: right; }
-  .table-row:hover { background-color: #f5f7ff; }
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  table-layout: auto; // 使用自动布局，列宽自适应内容
+  min-height: 400px; // 设置表格最小高度，让数据不满时也显得饱满
+  
+  th, td { 
+    padding: 18px 12px; // 增加内边距，让表格看起来更饱满
+    text-align: left; 
+    border-bottom: 1px solid #f3f4f6;
+    transition: background-color 0.2s;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+  
+  th { 
+    background-color: #f9fafb; 
+    font-weight: 600; 
+    color: #4b5563; 
+    white-space: nowrap; 
+    position: relative;
+    user-select: none;
+    &:first-child { border-top-left-radius: 8px; } 
+    &:last-child { border-top-right-radius: 8px; }
+  }
+  
+  // 优化列宽分配 - 使用类名选择器
+  .checkbox-col {
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
+  }
+  
+  .col-id {
+    width: 120px;
+    min-width: 100px;
+  }
+  
+  .col-name {
+    min-width: 200px;
+    max-width: 400px;
+  }
+  
+  .col-type {
+    width: 140px;
+    min-width: 120px;
+  }
+  
+  .col-severity {
+    width: 120px;
+    min-width: 100px;
+  }
+  
+  .col-date {
+    width: 140px;
+    min-width: 120px;
+  }
+  
+  .col-actions {
+    width: 140px;
+    min-width: 120px;
+  }
+  td { 
+    vertical-align: middle; 
+    
+    .cve-tag { 
+      display: inline-block; 
+      background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+      color: #4f46e5; 
+      padding: 5px 10px; 
+      border-radius: 6px; 
+      font-size: 12px; 
+      font-weight: 600;
+      border: 1px solid #c7d2fe;
+      box-shadow: 0 1px 2px rgba(79, 70, 229, 0.1);
+    } 
+    
+    .vuln-title { 
+      font-weight: 500; 
+      color: #1f2937;
+      line-height: 1.5;
+      max-width: 400px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    } 
+    
+    .vuln-type { 
+      color: #6b7280;
+      font-size: 13px;
+    } 
+    
+    .severity-badge { 
+      display: inline-flex; 
+      align-items: center; 
+      gap: 6px; 
+      padding: 5px 10px; 
+      border-radius: 6px; 
+      font-size: 12px; 
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      
+      .dot { 
+        width: 6px; 
+        height: 6px; 
+        border-radius: 50%; 
+        display: inline-block; 
+      } 
+      
+      &.danger { 
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #dc2626; 
+        border: 1px solid #fca5a5;
+        
+        .dot { 
+          background-color: #dc2626; 
+        } 
+      } 
+      
+      &.warning { 
+        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        color: #d97706; 
+        border: 1px solid #fcd34d;
+        
+        .dot { 
+          background-color: #d97706; 
+        } 
+      } 
+      
+      &.success { 
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        color: #059669; 
+        border: 1px solid #6ee7b7;
+        
+        .dot { 
+          background-color: #059669; 
+        } 
+      } 
+      
+      &.primary { 
+        background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+        color: #0284c7; 
+        border: 1px solid #7dd3fc;
+        
+        .dot { 
+          background-color: #0284c7; 
+        } 
+      } 
+    } 
+    
+    .date-text { 
+      color: #6b7280;
+      font-size: 13px;
+    } 
+  }
+  tr.selected { 
+    background-color: #f0f4ff;
+    border-left: 3px solid #5e7ce0;
+    
+    // 选中行的最后一行也需要底部圆角
+    &:last-child td {
+      &:first-child {
+        border-bottom-left-radius: 8px;
+      }
+      
+      &:last-child {
+        border-bottom-right-radius: 8px;
+      }
+    }
+  }
+  
+  .checkbox-col { 
+    padding-left: 24px; 
+  }
+  
+  .text-right { 
+    text-align: right; 
+  }
+  .table-row { 
+    transition: all 0.2s;
+    height: 64px; // 设置固定行高，让表格看起来更饱满
+    
+    &:hover { 
+      background-color: #f8fafc;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    }
+    
+    // 最后一行底部圆角
+    &:last-child td {
+      border-bottom: none;
+      
+      &:first-child {
+        border-bottom-left-radius: 8px;
+      }
+      
+      &:last-child {
+        border-bottom-right-radius: 8px;
+      }
+    }
+    
+    td {
+      padding: 20px 12px; // 增加内边距，让表格看起来更饱满
+      vertical-align: middle;
+      height: 64px; // 确保单元格高度一致
+    }
+  }
+  
+  .empty-state {
+    padding: 0 !important;
+    text-align: center;
+    background: #fff;
+    border-radius: 0 0 8px 8px;
+    height: 400px; // 设置固定高度，让空状态显得饱满
+    display: table-row;
+    
+    td {
+      border-bottom: none;
+      padding: 0;
+      vertical-align: middle;
+      height: 400px;
+      
+      &:first-child {
+        border-bottom-left-radius: 8px;
+      }
+      
+      &:last-child {
+        border-bottom-right-radius: 8px;
+      }
+    }
+    
+    .empty-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      color: #9ca3af;
+      height: 100%;
+      min-height: 400px;
+      
+      :deep(.d-icon) {
+        opacity: 0.7;
+      }
+      
+      span {
+        font-size: 16px;
+        font-weight: 500;
+        color: #6b7280;
+      }
+      
+      .empty-tip {
+        font-size: 14px;
+        color: #cbd5e1;
+        margin: 4px 0 0 0;
+        font-weight: 400;
+      }
+    }
+  }
 }
-.row-actions { display: flex; justify-content: flex-end; gap: 8px; .action-btn { width: 28px; height: 28px; padding: 0; border: none; background: transparent; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; .btn-shape { display: block; position: relative; } } .view-shape { width: 14px; height: 9px; border: 1.5px solid #94a3b8; border-radius: 7px; &::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4px; height: 4px; background: #94a3b8; border-radius: 50%; } } .edit-shape { width: 10px; height: 10px; border: 1.5px solid #94a3b8; border-radius: 2px; &::before { content: ''; position: absolute; top: -2px; right: -2px; width: 4px; height: 1.5px; background: #94a3b8; transform: rotate(45deg); } } .delete-shape { width: 10px; height: 10px; border: 1.5px solid #f66f6a; border-radius: 2px; &::before { content: ''; position: absolute; top: 5px; left: 2px; width: 6px; height: 1.5px; background: #f66f6a; transform: rotate(45deg); } } .action-btn:hover { background: #f1f5f9; } }
+.row-actions { 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 8px; 
+  
+  .action-btn { 
+    width: 36px; 
+    height: 36px; 
+    padding: 0; 
+    border: 1px solid transparent;
+    background: #f8fafc;
+    border-radius: 8px; 
+    cursor: pointer; 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    
+    .btn-shape { 
+      display: block; 
+      position: relative; 
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    } 
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+      
+      .btn-shape {
+        transform: scale(1.1);
+      }
+    }
+    
+    &:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      
+      .btn-shape {
+        transform: scale(0.95);
+      }
+    }
+  } 
+  
+  .view-shape { 
+    width: 14px; 
+    height: 9px; 
+    border: 1.5px solid #94a3b8; 
+    border-radius: 7px; 
+    transition: all 0.3s;
+    
+    &::before { 
+      content: ''; 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      width: 4px; 
+      height: 4px; 
+      background: #94a3b8; 
+      border-radius: 50%; 
+      transition: all 0.3s;
+    } 
+  } 
+  
+  .edit-shape { 
+    width: 10px; 
+    height: 10px; 
+    border: 1.5px solid #94a3b8; 
+    border-radius: 2px; 
+    transition: all 0.3s;
+    
+    &::before { 
+      content: ''; 
+      position: absolute; 
+      top: -2px; 
+      right: -2px; 
+      width: 4px; 
+      height: 1.5px; 
+      background: #94a3b8; 
+      transform: rotate(45deg); 
+      transition: all 0.3s;
+    } 
+  } 
+  
+  .delete-shape { 
+    width: 10px; 
+    height: 10px; 
+    border: 1.5px solid #f66f6a; 
+    border-radius: 2px; 
+    transition: all 0.3s;
+    
+    &::before { 
+      content: ''; 
+      position: absolute; 
+      top: 5px; 
+      left: 2px; 
+      width: 6px; 
+      height: 1.5px; 
+      background: #f66f6a; 
+      transform: rotate(45deg); 
+      transition: all 0.3s;
+    } 
+  } 
+  
+  .view-btn {
+    &:hover {
+      background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+      border-color: rgba(14, 165, 233, 0.3);
+      
+      .view-shape {
+        border-color: #0284c7;
+        transform: scale(1.1);
+        
+        &::before {
+          background: #0284c7;
+        }
+      }
+    }
+    
+    &:active {
+      background: linear-gradient(135deg, #bae6fd 0%, #7dd3fc 100%);
+      border-color: rgba(14, 165, 233, 0.4);
+    }
+  }
+  
+  .edit-btn {
+    &:hover {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border-color: rgba(245, 158, 11, 0.3);
+      
+      .edit-shape {
+        border-color: #d97706;
+        transform: scale(1.1);
+        
+        &::before {
+          background: #d97706;
+        }
+      }
+    }
+    
+    &:active {
+      background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+  }
+  
+  .delete-btn {
+    &:hover {
+      background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+      border-color: rgba(239, 68, 68, 0.3);
+      
+      .delete-shape {
+        border-color: #dc2626;
+        transform: scale(1.1);
+        
+        &::before {
+          background: #dc2626;
+        }
+      }
+    }
+    
+    &:active {
+      background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+  }
+}
 .pagination-bar {
-  padding: 8px 16px;
+  padding: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-top: 1px solid #f1f5f9;
   margin-top: auto;
-  .total-info { font-size: 13px; color: #64748b; }
+  background: #fff;
+  
+  .total-info { 
+    font-size: 14px; 
+    color: #64748b;
+    font-weight: 500;
+  }
 }
+// 平板设备 (768px - 1024px)
+@media (max-width: 1024px) and (min-width: 769px) {
+  .database-page {
+    padding: 20px 24px;
+  }
+  
+  .table-container {
+    padding: 12px;
+    
+    .modern-table {
+      min-width: 700px;
+      
+      th, td {
+        padding: 14px 10px;
+        font-size: 13px;
+      }
+    }
+  }
+  
+  .row-actions {
+    gap: 6px;
+    
+    .action-btn {
+      width: 32px;
+      height: 32px;
+    }
+  }
+}
+
+// 移动设备 (最大 768px)
 @media (max-width: 768px) {
-  .database-page { padding: 16px; }
-  .toolbar-section { flex-direction: column; align-items: stretch; gap: 16px; .left-tools { flex-wrap: wrap; } .right-tools { .search-box { width: 100%; } } }
-  .table-container { overflow-x: auto; }
+  .database-page { 
+    padding: 12px; 
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    
+    .page-title {
+      h2 {
+        font-size: 24px;
+      }
+      
+      .subtitle {
+        font-size: 13px;
+      }
+    }
+    
+    .page-actions {
+      width: 100%;
+      
+      .add-btn {
+        width: 100%;
+        padding: 8px 16px;
+        font-size: 14px;
+      }
+    }
+  }
+  
+  .main-card {
+    border-radius: 8px;
+  }
+  
+  .toolbar-section { 
+    flex-direction: column; 
+    align-items: stretch; 
+    gap: 12px;
+    padding: 12px 16px;
+    
+    .left-tools { 
+      flex-wrap: wrap; 
+      gap: 8px;
+    } 
+    
+    .right-tools { 
+      width: 100%;
+      flex-direction: column;
+      gap: 8px;
+      
+      .search-box { 
+        width: 100%;
+        
+        .custom-search {
+          :deep(.d-input__inner) {
+            font-size: 14px;
+            padding: 8px 44px 8px 36px;
+            height: 36px;
+          }
+        }
+      }
+      
+      .icon-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    } 
+  }
+  
+  .table-container { 
+    overflow-x: auto;
+    padding: 8px;
+    -webkit-overflow-scrolling: touch;
+    
+    .modern-table {
+      min-width: 600px;
+      font-size: 12px;
+      
+      th, td {
+        padding: 12px 8px;
+        font-size: 12px;
+      }
+      
+      th {
+        font-size: 11px;
+        font-weight: 600;
+      }
+      
+      // 移动端列宽调整
+      .checkbox-col {
+        width: 50px;
+        min-width: 50px;
+        max-width: 50px;
+      }
+      
+      .col-id {
+        width: 100px;
+        min-width: 80px;
+      }
+      
+      .col-name {
+        min-width: 150px;
+        max-width: 250px;
+      }
+      
+      .col-type {
+        width: 100px;
+        min-width: 90px;
+      }
+      
+      .col-severity {
+        width: 100px;
+        min-width: 90px;
+      }
+      
+      .col-date {
+        width: 110px;
+        min-width: 100px;
+      }
+      
+      .col-actions {
+        width: 110px;
+        min-width: 100px;
+      }
+      
+      // 移动端内容调整
+      .cve-tag {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+      
+      .vuln-title {
+        max-width: 200px;
+        font-size: 13px;
+      }
+      
+      .vuln-type {
+        font-size: 11px;
+      }
+      
+      .severity-badge {
+        padding: 4px 8px;
+        font-size: 11px;
+        
+        .dot {
+          width: 5px;
+          height: 5px;
+        }
+      }
+      
+      .date-text {
+        font-size: 11px;
+      }
+    }
+  }
+  
+  .row-actions {
+    gap: 4px;
+    justify-content: center;
+    
+    .action-btn {
+      width: 32px;
+      height: 32px;
+      
+      .btn-shape {
+        transform: scale(0.9);
+      }
+    }
+  }
+  
+  .pagination-bar {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    
+    .total-info {
+      font-size: 13px;
+    }
+  }
+  
+  .batch-bar {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+    
+    .selected-count {
+      font-size: 13px;
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .batch-ops {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
+
+// 小屏移动设备 (最大 480px)
+@media (max-width: 480px) {
+  .database-page {
+    padding: 8px;
+  }
+  
+  .table-container {
+    padding: 4px;
+    
+    .modern-table {
+      min-width: 500px;
+      border-radius: 6px;
+      
+      th, td {
+        padding: 10px 6px;
+        font-size: 11px;
+      }
+      
+      th {
+        font-size: 10px;
+        padding: 10px 6px;
+      }
+      
+      // 超小屏幕列宽进一步压缩
+      .checkbox-col {
+        width: 45px;
+        min-width: 45px;
+        max-width: 45px;
+      }
+      
+      .col-id {
+        width: 80px;
+        min-width: 70px;
+      }
+      
+      .col-name {
+        min-width: 120px;
+        max-width: 200px;
+      }
+      
+      .col-type {
+        width: 80px;
+        min-width: 70px;
+      }
+      
+      .col-severity {
+        width: 80px;
+        min-width: 70px;
+      }
+      
+      .col-date {
+        width: 90px;
+        min-width: 80px;
+      }
+      
+      .col-actions {
+        width: 90px;
+        min-width: 80px;
+      }
+    }
+  }
+  
+  .row-actions {
+    gap: 3px;
+    
+    .action-btn {
+      width: 28px;
+      height: 28px;
+      
+      .btn-shape {
+        transform: scale(0.85);
+      }
+    }
+  }
+  
+  .page-header {
+    .page-title {
+      h2 {
+        font-size: 20px;
+      }
+    }
+  }
 }
 </style>
