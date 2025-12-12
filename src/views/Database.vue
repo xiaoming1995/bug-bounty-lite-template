@@ -49,7 +49,7 @@ const tableData = ref<ReportItem[]>([]);
 // Pagination config
 const pagination = ref({
   pageIndex: 1,
-  pageSize: 20,  // 默认每页显示 20 条
+  pageSize: 10,  // 默认每页显示 10 条
   total: 0,
 });
 
@@ -291,9 +291,7 @@ onMounted(async () => {
               @keyup.enter="handleSearch"
               class="custom-search"
             >
-              <template #prefix>
-                <d-icon name="search" class="search-icon" />
-              </template>
+
               <template #suffix>
                 <d-button bs-style="text" class="search-btn" @click="handleSearch" title="搜索">
                   <d-icon name="search" />
@@ -388,6 +386,65 @@ onMounted(async () => {
             </template>
           </tbody>
         </table>
+        
+        <!-- 移动端卡片视图 -->
+        <div class="mobile-card-list">
+          <div v-if="loading" class="loading-state">
+            <d-icon name="loading" size="24px" color="#9ca3af" />
+            <span>加载中...</span>
+          </div>
+          <div v-else-if="tableData.length === 0" class="empty-state-card">
+            <d-icon name="info-o" size="32px" color="#cbd5e1" />
+            <span>暂无数据</span>
+            <p class="empty-tip">请尝试调整筛选条件</p>
+          </div>
+          <template v-else>
+            <div 
+              v-for="row in tableData" 
+              :key="row.id" 
+              class="mobile-card" 
+              :class="{ selected: selectedRows.includes(row) }"
+            >
+              <div class="card-header">
+                <div class="header-left">
+                  <d-checkbox
+                    :model-value="selectedRows.includes(row)"
+                    @change="(checked: boolean) => toggleRowSelection(row, checked)"
+                  />
+                  <span class="cve-tag">#{{ row.id }}</span>
+                </div>
+                <div class="severity-badge" :class="getSeverityColor(row?.severity)">
+                  <span class="dot"></span>{{ getSeverityText(row?.severity) }}
+                </div>
+              </div>
+              
+              <div class="card-body" @click="viewDetail(row)">
+                <h3 class="vuln-title">{{ row.vulnerability_name }}</h3>
+                <div class="vuln-meta">
+                  <span class="vuln-type">
+                    <d-icon name="tag" size="12px" />
+                    {{ row.vulnerability_type?.config_value || '未知类型' }}
+                  </span>
+                </div>
+              </div>
+              
+              <div class="card-footer">
+                <span class="date-text">{{ formatDate(row.created_at) }}</span>
+                <div class="row-actions">
+                  <button class="action-btn view-btn" @click.stop="viewDetail(row)">
+                    <span class="btn-shape view-shape"></span>
+                  </button>
+                  <button class="action-btn edit-btn" @click.stop="editItem(row)">
+                    <span class="btn-shape edit-shape"></span>
+                  </button>
+                  <button class="action-btn delete-btn" @click.stop="deleteItem(row)">
+                    <span class="btn-shape delete-shape"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
       </div>
       <div class="pagination-bar">
         <div class="total-info">共 {{ pagination.total }} 条</div>
@@ -566,6 +623,9 @@ onMounted(async () => {
           top: 50%;
           transform: translateY(-50%);
         }
+        :deep(.devui-input__wrapper){
+            padding: 0 0 0 8px;
+        }
       } 
       
       .search-btn { 
@@ -677,13 +737,13 @@ onMounted(async () => {
   background: #fafbfc;
   display: flex;
   flex-direction: column;
-  min-height: 500px; // 增加最小高度，确保数据不满时也有足够空间
+
   -webkit-overflow-scrolling: touch;
   
   .modern-table {
     flex-shrink: 0;
     min-width: 800px; // 确保表格最小宽度，小屏幕时横向滚动
-    min-height: 450px; // 增加表格最小高度，让数据不满时也显得饱满
+
     display: table; // 确保表格正常显示
   }
   
@@ -717,7 +777,7 @@ onMounted(async () => {
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   table-layout: auto; // 使用自动布局，列宽自适应内容
-  min-height: 400px; // 设置表格最小高度，让数据不满时也显得饱满
+
   
   th, td { 
     padding: 18px 12px; // 增加内边距，让表格看起来更饱满
@@ -1469,5 +1529,255 @@ onMounted(async () => {
       }
     }
   }
+}
+</style>
+
+<style scoped lang="scss">
+// 移动设备 (最大 768px)
+@media (max-width: 768px) {
+  .database-page { 
+    padding: 12px; 
+    background: #f0f2f5; // 移动端背景稍微深一点，突出卡片
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 0;
+    border-bottom: none;
+    
+    .page-title {
+      h2 {
+        font-size: 24px;
+        margin-bottom: 4px;
+      }
+      
+      .subtitle {
+        font-size: 13px;
+      }
+    }
+    
+    .page-actions {
+      width: 100%;
+      
+      .add-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 10px;
+      }
+    }
+  }
+  
+  .main-card {
+    background: transparent; // 移动端移除大卡片背景
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+  
+  .toolbar-section { 
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    flex-direction: column;
+    gap: 12px;
+    
+    .right-tools { 
+      width: 100%;
+      flex-direction: column;
+      
+      .search-box { 
+        width: 100%;
+        
+        .custom-search {
+          :deep(.d-input__inner) {
+            height: 40px;
+          }
+        }
+      }
+
+      .icon-btn {
+        display: none; // 移动端隐藏刷新按钮，可以通过下拉刷新实现（如果需要）
+      }
+    } 
+  }
+
+  .batch-bar {
+    margin: 0 0 12px 0;
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  
+  .table-container { 
+    padding: 0;
+    background: transparent;
+    min-height: auto;
+    display: block; // 重置 flex
+    
+    // 隐藏表格
+    .modern-table {
+      display: none;
+    }
+  }
+
+  // 移动端卡片列表样式
+  .mobile-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 20px;
+
+    .loading-state, .empty-state-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #9ca3af;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      
+      span {
+        font-size: 14px;
+      }
+    }
+
+    .mobile-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+
+      &.selected {
+        border-color: #5e7ce0;
+        background-color: #f8faff;
+        
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+          background: #5e7ce0;
+        }
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+
+        .header-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          .cve-tag {
+            font-size: 13px;
+            font-weight: 600;
+            color: #4b5563;
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+          }
+        }
+      }
+
+      .card-body {
+        margin-bottom: 16px;
+
+        .vuln-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #111827;
+          margin: 0 0 8px 0;
+          line-height: 1.4;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .vuln-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .vuln-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #6b7280;
+          }
+        }
+      }
+
+      .card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 12px;
+        border-top: 1px solid #f3f4f6;
+
+        .date-text {
+          font-size: 12px;
+          color: #9ca3af;
+        }
+
+        .row-actions {
+          gap: 8px;
+          
+          .action-btn {
+            width: 32px;
+            height: 32px;
+            background: #f3f4f6;
+            
+            &:active {
+              background: #e5e7eb;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  .pagination-bar {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-top: 0;
+    
+    :deep(.devui-pagination) {
+      justify-content: center;
+    }
+  }
+}
+
+// 默认隐藏移动端卡片列表
+.mobile-card-list {
+  display: none;
 }
 </style>

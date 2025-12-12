@@ -4,7 +4,7 @@
  */
 
 // API 基础配置
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 const API_TIMEOUT = 30000 // 30秒超时
 
 // 请求配置接口
@@ -43,16 +43,16 @@ function getAuthToken(): string | null {
  */
 function requestInterceptor(config: RequestConfig): RequestConfig {
   const token = getAuthToken()
-  
+
   // 设置默认 headers
   const headers = new Headers(config.headers)
-  
+
   if (token) {
     headers.set('Authorization', `Bearer ${token}`)
   }
-  
+
   headers.set('Content-Type', 'application/json')
-  
+
   return {
     ...config,
     headers
@@ -66,17 +66,17 @@ async function responseInterceptor<T>(response: Response): Promise<T> {
   // 解析响应数据（先解析，再判断状态码）
   const contentType = response.headers.get('content-type')
   let responseData: any = null
-  
+
   if (contentType && contentType.includes('application/json')) {
     responseData = await response.json()
   } else {
     responseData = await response.text()
   }
-  
+
   // HTTP 状态码检查
   if (!response.ok) {
     let errorMessage = `请求失败: ${response.status} ${response.statusText}`
-    
+
     // 尝试从响应数据中提取错误信息
     if (responseData) {
       if (typeof responseData === 'object') {
@@ -85,7 +85,7 @@ async function responseInterceptor<T>(response: Response): Promise<T> {
         errorMessage = responseData || errorMessage
       }
     }
-    
+
     // 401 未授权，清除 token 并跳转登录（但不影响当前登录流程）
     if (response.status === 401) {
       localStorage.removeItem('token')
@@ -94,7 +94,7 @@ async function responseInterceptor<T>(response: Response): Promise<T> {
       localStorage.removeItem('userInfo')
       localStorage.removeItem('user_info')
       localStorage.removeItem('tokenExpiresAt')
-      
+
       // 只有在非登录页面才跳转（避免登录页面的401错误导致跳转）
       if (!window.location.pathname.includes('/login')) {
         setTimeout(() => {
@@ -102,14 +102,14 @@ async function responseInterceptor<T>(response: Response): Promise<T> {
         }, 100)
       }
     }
-    
+
     // 抛出错误，但不跳转（由调用方处理）
     const error = new Error(errorMessage) as any
     error.status = response.status
     error.response = responseData
     throw error
   }
-  
+
   // 如果后端统一返回 { code, message, data } 格式
   if (typeof responseData === 'object' && responseData !== null && 'code' in responseData) {
     // 只有 code 为 200 或 0 才认为是成功
@@ -123,7 +123,7 @@ async function responseInterceptor<T>(response: Response): Promise<T> {
       throw error
     }
   }
-  
+
   // 如果后端直接返回数据（HTTP 200 且没有 code 字段）
   return responseData as T
 }
@@ -136,33 +136,33 @@ async function request<T = any>(
   config: RequestConfig = {}
 ): Promise<T> {
   const { timeout = API_TIMEOUT, showError = true, ...fetchConfig } = config
-  
+
   try {
     // 请求拦截
     const interceptedConfig = requestInterceptor(fetchConfig)
-    
+
     // 构建完整 URL
     const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`
-    
+
     // 创建请求 Promise 和超时 Promise
     const requestPromise = fetch(fullUrl, interceptedConfig)
     const timeoutPromise = createTimeoutPromise(timeout)
-    
+
     // 执行请求（带超时控制）
     const response = await Promise.race([requestPromise, timeoutPromise])
-    
+
     // 响应拦截
     return await responseInterceptor<T>(response as Response)
   } catch (error: any) {
     // 错误处理
     const errorMessage = error.message || '网络请求失败'
-    
+
     if (showError) {
       console.error('API 请求错误:', errorMessage)
       // 这里可以集成消息提示组件，如 DevUI 的 Toast
       // Toast.open({ type: 'error', content: errorMessage })
     }
-    
+
     throw error
   }
 }
@@ -245,15 +245,15 @@ export function upload(
     fd.append('file', file)
     return fd
   })()
-  
+
   const token = getAuthToken()
   const headers = new Headers()
-  
+
   if (token) {
     headers.set('Authorization', `Bearer ${token}`)
   }
   // 不设置 Content-Type，让浏览器自动设置（包含 boundary）
-  
+
   return request(url, {
     ...config,
     method: 'POST',
