@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import Header from './Public/Header.vue'
-import { get, post } from '../utils/request'
+import { get, post, upload } from '../utils/request'
 import { PROJECT_API, REPORT_API, CONFIG_API } from '../api/config'
 
 // 表单数据
@@ -14,7 +14,7 @@ const formData = reactive({
   riskLevel: null as number | null,
   vulnerabilityLink: '',
   vulnerabilityDetails: '',
-  attachments: []
+  attachments: [] as File[]
 })
 
 // 响应式状态
@@ -41,7 +41,7 @@ interface ProjectItem {
 }
 
 interface ProjectResponse {
-  data: ProjectItem[]
+  list: ProjectItem[]
   page: number
   total: number
 }
@@ -52,8 +52,8 @@ const loadProjects = async () => {
   try {
     const response = await get<ProjectResponse>(PROJECT_API.LIST)
     
-    // 解析返回数据：{ data: [...], page: number, total: number }
-    const projects = response?.data || []
+    // 解析返回数据：{ list: [...], page: number, total: number }
+    const projects = response?.list || []
     
     // 检查数据是否有效
     if (projects.length > 0) {
@@ -103,10 +103,10 @@ interface VulnerabilityTypeItem {
 const loadVulnerabilityTypes = async () => {
   vulnerabilityTypeLoading.value = true
   try {
-    const response = await get<VulnerabilityTypeItem[] | { data: VulnerabilityTypeItem[] }>(CONFIG_API.VULNERABILITY_TYPE)
+    const response = await get<VulnerabilityTypeItem[] | { list: VulnerabilityTypeItem[] }>(CONFIG_API.VULNERABILITY_TYPE)
     
     // 兼容两种返回格式：直接数组 或 { data: [...] }
-    const types = Array.isArray(response) ? response : (response?.data || [])
+    const types = Array.isArray(response) ? response : (response?.list || [])
     
     if (types.length > 0) {
       const options = types.map(type => ({
@@ -130,7 +130,7 @@ const handleVulnerabilityTypeLoadFailed = () => {
   vulnerabilityTypeLoadFailed.value = true
   vulnerabilityTypeOptions.value = [
     { name: '加载失败，请刷新页面重试', value: null }
-]
+  ]
 }
 
 // 风险等级选项（动态加载）
@@ -153,10 +153,10 @@ interface SeverityLevelItem {
 const loadSeverityLevels = async () => {
   riskLevelLoading.value = true
   try {
-    const response = await get<SeverityLevelItem[] | { data: SeverityLevelItem[] }>(CONFIG_API.SEVERITY_LEVEL)
+    const response = await get<SeverityLevelItem[] | { list: SeverityLevelItem[] }>(CONFIG_API.SEVERITY_LEVEL)
     
     // 兼容两种返回格式：直接数组 或 { data: [...] }
-    const levels = Array.isArray(response) ? response : (response?.data || [])
+    const levels = Array.isArray(response) ? response : (response?.list || [])
     
     if (levels.length > 0) {
       const options = levels.map(level => ({
@@ -180,7 +180,7 @@ const handleSeverityLevelLoadFailed = () => {
   riskLevelLoadFailed.value = true
   riskLevelOptions.value = [
     { name: '加载失败', value: null }
-]
+  ]
 }
 
 // 方法
@@ -228,19 +228,49 @@ const handleSubmit = async () => {
 
   loading.value = true
   try {
-    // 构建提交数据
-    const submitData = {
+    // 构建提交数据（根据 API 文档格式）
+    const submitData: any = {
       project_id: formData.project_id,
       vulnerability_name: formData.vulnerabilityName,
       vulnerability_type_id: formData.vulnerabilityType,
-      harm_description: formData.terminationReason,
-      severity_level_id: formData.riskLevel,
-      vulnerability_link: formData.vulnerabilityLink,
-      vulnerability_details: formData.vulnerabilityDetails
+      vulnerability_impact: formData.terminationReason,
+      vulnerability_url: formData.vulnerabilityLink,
+      vulnerability_detail: formData.vulnerabilityDetails
     }
 
-    // 调用提交接口
-    await post(REPORT_API.CREATE, submitData)
+    // 如果有危害自评，添加 severity_level_id 字段（可选，确保为 number 类型）
+    if (formData.riskLevel !== null && formData.riskLevel !== undefined) {
+      submitData.severity_level_id = Number(formData.riskLevel)
+    }
+
+    // 如果有附件，使用 FormData；否则使用 JSON
+    if (formData.attachments && formData.attachments.length > 0) {
+      const formDataToSubmit = new FormData()
+      
+      // 添加所有字段到 FormData
+      Object.keys(submitData).forEach(key => {
+        const value = submitData[key]
+        if (value !== null && value !== undefined) {
+          // 对于数字类型字段，确保提交为数字字符串
+          if (typeof value === 'number') {
+            formDataToSubmit.append(key, String(value))
+          } else {
+            formDataToSubmit.append(key, String(value))
+          }
+        }
+      })
+      
+      // 添加附件
+      formData.attachments.forEach((file: File, index: number) => {
+        formDataToSubmit.append(`attachments[${index}]`, file)
+      })
+
+      // 使用 upload 方法提交 FormData
+      await upload(REPORT_API.CREATE, formDataToSubmit)
+    } else {
+      // 没有附件，使用 JSON 格式提交（确保数字类型正确）
+      await post(REPORT_API.CREATE, submitData)
+    }
 
     alert('漏洞提交成功！')
 
@@ -269,8 +299,34 @@ const resetForm = () => {
   agreeTerms.value = false
 }
 
-const handleFileUpload = (files: FileList) => {
-  console.log('上传文件:', files)
+const handleFileUpload = (files: File[] | FileList) => {
+  // DevUI Upload 组件的 file-select 事件会传递文件数组
+  const fileArray = Array.isArray(files) ? files : Array.from(files)
+  
+  // 将新文件添加到附件列表
+  fileArray.forEach((file: File) => {
+    // 检查文件大小限制
+    const maxSize = file.name.match(/\.(pdf|docx?)$/i) ? 8 * 1024 * 1024 : 500 * 1024 * 1024 // 8MB 或 500MB
+    if (file.size > maxSize) {
+      const maxSizeMB = maxSize / (1024 * 1024)
+      alert(`文件 ${file.name} 超过大小限制 ${maxSizeMB}MB`)
+      return
+    }
+    
+    // 检查文件类型
+    const fileExtension = file.name.split('.').pop()?.toLowerCase()
+    const allowedExtensions = ['pdf', 'doc', 'docx', 'apk', 'ipa', 'aar', 'zip', 'jar', 'rar', '7z']
+    
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+      alert(`文件 ${file.name} 格式不支持，支持的格式：${allowedExtensions.join(', ')}`)
+      return
+    }
+    
+    // 添加到附件列表
+    if (!formData.attachments.find((f: File) => f.name === file.name && f.size === file.size)) {
+      formData.attachments.push(file)
+    }
+  })
 }
 
 // 隐藏所有错误提示的函数

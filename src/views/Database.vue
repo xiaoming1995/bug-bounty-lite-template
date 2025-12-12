@@ -1,13 +1,46 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import Header from './Public/Header.vue';
+import { get } from '../utils/request';
+import { REPORT_API } from '../api/config';
 
 const router = useRouter();
 
+// 接口返回数据类型
+interface ReportItem {
+  id: number
+  project_id: number
+  vulnerability_name: string
+  vulnerability_type_id: number
+  vulnerability_type?: {
+    id: number
+    config_value: string
+  }
+  vulnerability_impact: string
+  severity_level_id: number
+  severity_level?: {
+    id: number
+    config_value: string
+  }
+  severity?: string
+  vulnerability_url: string
+  vulnerability_detail: string
+  created_at: string
+  updated_at: string
+  status?: string
+}
+
+interface ReportResponse {
+    list: ReportItem[]
+    page: number
+    page_size: number
+    total: number
+}
+
 // Reactive state
 const loading = ref(false);
-const selectedRows = ref<any[]>([]);
+const selectedRows = ref<ReportItem[]>([]);
 const searchKeyword = ref('');
 
 // Filter conditions
@@ -17,44 +50,13 @@ const filterConditions = ref({
   severity: '全部风险等级',
 });
 
-// Table data (example data)
-const tableData = ref([
-  {
-    id: 'CVE-2023-1234',
-    title: 'Apache Log4j远程代码执行漏洞',
-    severity: '高危',
-    affectedProduct: '远程代码执行',
-    publishDate: '2023-05-10',
-    status: '已确认',
-    hasDetails: true,
-    _id: 1,
-  },
-  {
-    id: 'CVE-2023-5678',
-    title: 'WordPress插件SQL注入漏洞',
-    severity: '中危',
-    affectedProduct: 'SQL注入',
-    publishDate: '2023-05-08',
-    status: '已确认',
-    hasDetails: true,
-    _id: 2,
-  },
-  {
-    id: 'CVE-2023-9012',
-    title: 'Nginx配置文件泄露漏洞',
-    severity: '低危',
-    affectedProduct: '信息泄露',
-    publishDate: '2023-05-05',
-    status: '已确认',
-    hasDetails: true,
-    _id: 3,
-  },
-]);
+// Table data
+const tableData = ref<ReportItem[]>([]);
 
 // Pagination config
 const pagination = ref({
   pageIndex: 1,
-  pageSize: 10,
+  pageSize: 20,  // 默认每页显示 20 条
   total: 0,
 });
 
@@ -80,41 +82,111 @@ const severityOptions = [
   { label: '低危', value: '低危' },
 ];
 
-// Computed filtered data
-const filteredData = computed(() => {
-  let data = tableData.value;
-  if (searchKeyword.value) {
-    const kw = searchKeyword.value.toLowerCase();
-    data = data.filter(
-      (item) =>
-        item.title.toLowerCase().includes(kw) || item.id.toLowerCase().includes(kw)
-    );
-  }
-  return data;
-});
+// 加载漏洞列表
+const loadReports = async () => {
+  loading.value = true;
+  console.log('开始加载漏洞列表...');
+  
+  try {
+    // 构建查询参数
+    const params: any = {
+      page: pagination.value.pageIndex,
+      page_size: pagination.value.pageSize,
+    };
 
-// Sync pagination total with filtered data length
-watch(filteredData, (newVal) => {
-  pagination.value.total = newVal.length;
-});
+    // 添加搜索关键词
+    if (searchKeyword.value.trim()) {
+      params.search = searchKeyword.value.trim();
+    }
+
+    // 构建查询字符串
+    const filteredParams: Record<string, string> = {};
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        filteredParams[key] = String(value);
+      }
+    });
+
+    const queryString = new URLSearchParams(filteredParams).toString();
+    const url = queryString ? `${REPORT_API.LIST}?${queryString}` : REPORT_API.LIST;
+    
+    console.log('请求URL:', url);
+    
+    const response = await get<ReportResponse | ReportItem[]>(url);
+
+    console.log('接口返回数据:', response);
+    console.log('数据类型:', typeof response);
+    console.log('是否数组:', Array.isArray(response));
+    console.log('response 的键:', response && typeof response === 'object' ? Object.keys(response) : 'N/A');
+
+    // 兼容多种返回格式
+    if (Array.isArray(response)) {
+      // 如果直接返回数组
+      console.log('处理数组格式，长度:', response.length);
+      tableData.value = response;
+      pagination.value.total = response.length;
+    } else if (response && typeof response === 'object') {
+      // 如果返回 { list: [...], total: ... } 格式
+      console.log('处理对象格式，response.list:', response.list);
+      console.log('处理对象格式，response.total:', response.total);
+      console.log('response.list 类型:', typeof response.list);
+      console.log('response.list 是否为数组:', Array.isArray(response.list));
+      
+      const list = response.list || [];
+      tableData.value = Array.isArray(list) ? list : [];
+      pagination.value.total = response.total || 0;
+      
+      console.log('设置后的 tableData.value:', tableData.value);
+      console.log('设置后的 tableData.value.length:', tableData.value.length);
+    } else {
+      console.log('未知格式，设置为空');
+      tableData.value = [];
+      pagination.value.total = 0;
+    }
+    
+    console.log('最终 tableData.value:', tableData.value);
+    console.log('最终 tableData.value.length:', tableData.value.length);
+    console.log('最终 pagination.total:', pagination.value.total);
+  } catch (error: any) {
+    console.error('加载漏洞列表失败:', error);
+    console.error('错误详情:', error.message, error.status, error.response);
+    tableData.value = [];
+    pagination.value.total = 0;
+  } finally {
+    loading.value = false;
+    console.log('加载完成，loading:', loading.value);
+  }
+};
+
+// 标记是否已初始化
+const initialized = ref(false);
+
+// 监听分页变化（跳过初始化）
+watch(
+  () => [pagination.value.pageIndex, pagination.value.pageSize],
+  () => {
+    if (initialized.value) {
+      loadReports();
+    }
+  }
+);
 
 // Methods
 const handleSearch = () => {
-  loading.value = true;
-  setTimeout(() => {
-    loading.value = false;
-    console.log('搜索关键词:', searchKeyword.value);
-  }, 500);
+  // 搜索时重置到第一页
+  pagination.value.pageIndex = 1;
+  loadReports();
 };
 
 const handleFilterChange = () => {
-  console.log('筛选条件变更:', filterConditions.value);
-  handleSearch();
+  // 筛选时重置到第一页
+  pagination.value.pageIndex = 1;
+  loadReports();
 };
 
 const toggleSelectAll = (checked: boolean) => {
   if (checked) {
-    selectedRows.value = [...filteredData.value];
+    selectedRows.value = [...tableData.value];
   } else {
     selectedRows.value = [];
   }
@@ -133,41 +205,120 @@ const handleBatchExport = () => {
   console.log('批量导出:', selectedRows.value);
 };
 
-const handleBatchDelete = () => {
-  console.log('批量删除:', selectedRows.value);
-  tableData.value = tableData.value.filter((item) => !selectedRows.value.includes(item));
-  selectedRows.value = [];
+const handleBatchDelete = async () => {
+  if (!confirm(`确定要删除选中的 ${selectedRows.value.length} 条记录吗？`)) {
+    return;
+  }
+  
+  try {
+    // TODO: 调用批量删除接口
+    // await del(REPORT_API.BATCH_DELETE, { ids: selectedRows.value.map(r => r.id) })
+    console.log('批量删除:', selectedRows.value);
+    selectedRows.value = [];
+    await loadReports();
+  } catch (error) {
+    console.error('批量删除失败:', error);
+    alert('删除失败，请重试');
+  }
 };
 
-const viewDetail = (row: any) => {
-  console.log('查看详情:', row);
+const viewDetail = (row: ReportItem) => {
   router.push(`/database/detail/${row.id}`);
 };
 
-const editItem = (row: any) => {
+const editItem = (row: ReportItem) => {
   console.log('编辑:', row);
+  // TODO: 实现编辑功能
 };
 
-const deleteItem = (row: any) => {
-  console.log('删除单条:', row);
-  tableData.value = tableData.value.filter((item) => item !== row);
+const deleteItem = async (row: ReportItem) => {
+  if (!confirm('确定要删除这条记录吗？')) {
+    return;
+  }
+  
+  try {
+    // TODO: 调用删除接口
+    // await del(REPORT_API.DELETE(row.id))
+    console.log('删除单条:', row);
+    await loadReports();
+  } catch (error) {
+    console.error('删除失败:', error);
+    alert('删除失败，请重试');
+  }
 };
 
-const getSeverityColor = (severity: string) => {
-  const map: Record<string, string> = {
-    高危: 'danger',
-    中危: 'warning',
-    低危: 'success',
+// 将英文危害等级转换为中文
+const getSeverityText = (severity: string | undefined): string => {
+  if (!severity) return '-';
+  
+  // 统一转换为首字母大写进行比较
+  const severityNormalized = severity.charAt(0).toUpperCase() + severity.slice(1).toLowerCase();
+  
+  const textMap: Record<string, string> = {
+    'Critical': '严重',
+    'High': '高危',
+    'Medium': '中危',
+    'Low': '低危',
+    // 如果已经是中文，直接返回
+    '高危': '高危',
+    '严重': '严重',
+    '中危': '中危',
+    '低危': '低危',
+    '无危害': '无危害',
   };
-  return map[severity] || 'primary';
+  
+  return textMap[severityNormalized] || textMap[severity] || severity;
+};
+
+const getSeverityColor = (severity: string | undefined) => {
+  if (!severity) return 'primary';
+  
+  // 统一转换为首字母大写进行比较（匹配 Low/Medium/High/Critical）
+  const severityNormalized = severity.charAt(0).toUpperCase() + severity.slice(1).toLowerCase();
+  
+  const map: Record<string, string> = {
+    // 英文危害等级映射
+    'Critical': 'danger',  // 严重 - 红色
+    'High': 'danger',      // 高危 - 红色
+    'Medium': 'warning',   // 中危 - 黄色
+    'Low': 'success',      // 低危 - 绿色
+    // 中文映射（兼容）
+    '高危': 'danger',
+    '严重': 'danger',
+    '中危': 'warning',
+    '低危': 'success',
+    '无危害': 'success',
+  };
+  
+  return map[severityNormalized] || map[severity] || 'primary';
+};
+
+// 格式化日期
+const formatDate = (dateString: string) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
 };
 
 const addNewItem = () => {
   console.log('添加漏洞');
 };
 
-onMounted(() => {
-  handleSearch();
+onMounted(async () => {
+  console.log('组件已挂载，开始加载数据...');
+  try {
+    await loadReports();
+    console.log('数据加载完成');
+  } catch (error) {
+    console.error('onMounted 中捕获错误:', error);
+  } finally {
+    initialized.value = true;
+    console.log('初始化完成，initialized:', initialized.value);
+  }
 });
 </script>
 
@@ -264,7 +415,7 @@ onMounted(() => {
               </template>
             </d-input>
           </div>
-          <d-button bs-style="text" class="icon-btn" title="刷新" @click="handleSearch">
+          <d-button bs-style="text" class="icon-btn" title="刷新" @click="loadReports">
             <d-icon name="refresh" />
           </d-button>
         </div>
@@ -281,41 +432,60 @@ onMounted(() => {
         </div>
         <d-icon name="close" class="close-batch" @click="toggleSelectAll(false)" />
       </div>
+      <!-- 调试信息（开发时可见） -->
+      <div v-if="false" style="padding: 10px; background: #f0f0f0; margin: 10px 0; font-size: 12px;">
+        <p>调试信息:</p>
+        <p>loading: {{ loading }}</p>
+        <p>tableData.length: {{ tableData.length }}</p>
+        <p>pagination.total: {{ pagination.total }}</p>
+        <p>tableData: {{ JSON.stringify(tableData.slice(0, 2)) }}</p>
+      </div>
       <div class="table-container">
         <table class="modern-table">
           <thead>
             <tr>
               <th width="60px" class="checkbox-col">
                 <d-checkbox
-                  :model-value="selectedRows.length === filteredData.length && filteredData.length > 0"
+                  :model-value="selectedRows.length === tableData.length && tableData.length > 0"
                   @change="toggleSelectAll"
                 />
               </th>
-              <th width="160px">CVE编号</th>
+              <th width="160px">ID</th>
               <th>漏洞名称</th>
               <th width="140px">风险类型</th>
               <th width="120px">风险等级</th>
-              <th width="140px">发现日期</th>
+              <th width="140px">创建日期</th>
               <th width="120px" class="text-right">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in filteredData" :key="row._id" :class="{ selected: selectedRows.includes(row) }" class="table-row">
+            <tr v-if="loading">
+              <td colspan="7" style="text-align: center; padding: 40px;">
+                <span>加载中...</span>
+              </td>
+            </tr>
+            <tr v-else-if="tableData.length === 0">
+              <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                <span>暂无数据</span>
+              </td>
+            </tr>
+            <template v-else>
+              <tr v-for="row in tableData" :key="row.id" :class="{ selected: selectedRows.includes(row) }" class="table-row">
               <td class="checkbox-col">
                 <d-checkbox
                   :model-value="selectedRows.includes(row)"
-                  @change="(checked) => toggleRowSelection(row, checked)"
+                  @change="(checked: boolean) => toggleRowSelection(row, checked)"
                 />
               </td>
-              <td><span class="cve-tag">{{ row.id }}</span></td>
-              <td><div class="vuln-title">{{ row.title }}</div></td>
-              <td><span class="vuln-type">{{ row.affectedProduct }}</span></td>
+              <td><span class="cve-tag">#{{ row.id }}</span></td>
+              <td><div class="vuln-title">{{ row.vulnerability_name }}</div></td>
+              <td><span class="vuln-type">{{ row.vulnerability_type?.config_value || '-' }}</span></td>
               <td>
-                <div class="severity-badge" :class="getSeverityColor(row.severity)">
-                  <span class="dot"></span>{{ row.severity }}
+                <div class="severity-badge" :class="getSeverityColor(row?.severity)">
+                  <span class="dot"></span>{{ getSeverityText(row?.severity) }}
                 </div>
               </td>
-              <td><span class="date-text">{{ row.publishDate }}</span></td>
+              <td><span class="date-text">{{ formatDate(row.created_at) }}</span></td>
               <td class="text-right">
                 <div class="row-actions">
                   <button class="action-btn view-btn" title="查看" @click="viewDetail(row)">
@@ -330,6 +500,7 @@ onMounted(() => {
                 </div>
               </td>
             </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -339,7 +510,9 @@ onMounted(() => {
           v-model:pageIndex="pagination.pageIndex"
           v-model:pageSize="pagination.pageSize"
           :total="pagination.total"
-          :page-sizes="[10, 20, 50]"
+          :page-sizes="[10, 20, 50, 100]"
+          :can-change-page-size="true"
+          :show-total="true"
         />
       </div>
     </div>
