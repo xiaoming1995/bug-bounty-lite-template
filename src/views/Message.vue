@@ -3,20 +3,24 @@ import { ref, computed, onMounted } from 'vue'
 import Header from './Public/Header.vue'
 
 // 消息类型枚举
-enum MessageType {
-  SYSTEM = 'system',
-  SECURITY = 'security',
-  VULNERABILITY = 'vulnerability',
-  NOTIFICATION = 'notification'
-}
+const MessageType = {
+  SYSTEM: 'system',
+  SECURITY: 'security',
+  VULNERABILITY: 'vulnerability',
+  NOTIFICATION: 'notification'
+} as const
+
+type MessageType = typeof MessageType[keyof typeof MessageType]
 
 // 消息状态枚举
-enum MessageStatus {
-  UNREAD = 'unread',
-  READ = 'read',
-  STARRED = 'starred',
-  ARCHIVED = 'archived'
-}
+const MessageStatus = {
+  UNREAD: 'unread',
+  READ: 'read',
+  STARRED: 'starred',
+  ARCHIVED: 'archived'
+} as const
+
+type MessageStatus = typeof MessageStatus[keyof typeof MessageStatus]
 
 // 消息接口定义
 interface Message {
@@ -187,27 +191,6 @@ const updateMessageCounts = () => {
         tab.count = messages.value.filter(msg => msg.type === tab.key).length
     }
   })
-}
-
-// 获取消息类型图标
-const getMessageIcon = (type: MessageType) => {
-  const icons = {
-    [MessageType.SYSTEM]: '⚙️',
-    [MessageType.SECURITY]: '🛡️',
-    [MessageType.VULNERABILITY]: '🔍',
-    [MessageType.NOTIFICATION]: '📢'
-  }
-  return icons[type] || '📧'
-}
-
-// 获取优先级颜色
-const getPriorityColor = (priority: string) => {
-  const colors = {
-    high: '#ff4757',
-    medium: '#ffa502',
-    low: '#2ed573'
-  }
-  return colors[priority] || '#666'
 }
 
 // 格式化时间

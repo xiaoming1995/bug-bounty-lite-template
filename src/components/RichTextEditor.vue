@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 
 interface Props {
   modelValue: string
@@ -50,13 +50,6 @@ const handleCompositionEnd = () => {
   handleInput()
 }
 
-// 执行格式化命令
-const execCommand = (command: string, value?: string) => {
-  document.execCommand(command, false, value)
-  editorRef.value?.focus()
-  handleInput()
-}
-
 // 插入模板内容
 const insertTemplate = () => {
   const template = `<p><strong>1. 发现方式：</strong>请尽量详细描述，保留现场/截图/重现方法等等</p>
@@ -92,14 +85,6 @@ const handleFileUpload = (event: Event) => {
     console.log('上传文件:', files)
     showUploadArea.value = false
   }
-}
-
-// 获取纯文本长度
-const getTextLength = () => {
-  if (editorRef.value) {
-    return editorRef.value.innerText.length
-  }
-  return 0
 }
 
 // 切换上传区域显示
@@ -179,7 +164,7 @@ onMounted(() => {
           <d-button
             bs-style="primary"
             bs-size="sm"
-            @click="$refs.fileInput?.click()"
+            @click="($refs.fileInput as HTMLInputElement)?.click()"
           >
             选择文件
           </d-button>

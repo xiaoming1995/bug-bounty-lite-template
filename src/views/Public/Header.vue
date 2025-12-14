@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { logout } from '@/api/auth'
@@ -23,25 +23,6 @@ const userMenuOptions = ref([
   { id: 'message', name: '消息中心', icon: 'notice' },
   { id: 'logout', name: '退出登录', icon: 'log-out' }
 ])
-
-const handleMenuClick = (data: Object) => {
-  activeKey.value = data.key
-  const  key = data.key
-  console.log('进来了',key)
-  console.log('可用路由名称:', router.getRoutes().map(r => r.name))
-  switch(key) {
-    case 'warning':
-      router.push({ name: 'WarningCenter' }) // 使用命名路由
-      break
-    case 'home':
-        router.push('/login')
-        break;
-    case 'test':
-        router.push('/test')
-        break;
-    // 其他菜单项...
-  }
-}
 
 const handleUserMenuClick = async (data: any) => {
   // DevUI menu 的 select 事件会传递 { id, key } 对象
@@ -90,10 +71,6 @@ const handleLogout = async () => {
       window.location.href = '/login'
     })
   }
-}
-
-const handleToggle =  (val :string) => {
-        console.log(val)
 }
 
 const isSubmitting = ref(false)

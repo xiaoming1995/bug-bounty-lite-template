@@ -9,8 +9,38 @@ const router = useRouter()
 // 获取路由参数中的ID
 const vulnerabilityId = ref(route.params.id as string)
 
+interface Attachment {
+  name: string
+  size: string
+  url: string
+}
+
+interface Comment {
+  id: number
+  author: string
+  time: string
+  content: string
+}
+
+interface VulnerabilityDetail {
+  id: string
+  title: string
+  type: string
+  level: string
+  status: string
+  submitTime: string
+  updateTime: string
+  submitter: string
+  project: string
+  description: string
+  poc: string
+  solution: string
+  attachments: Attachment[]
+  comments: Comment[]
+}
+
 // 漏洞详情数据
-const vulnerabilityDetail = ref({
+const vulnerabilityDetail = ref<VulnerabilityDetail>({
   id: '',
   title: '',
   type: '',

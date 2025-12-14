@@ -14,11 +14,7 @@ interface RequestConfig extends RequestInit {
 }
 
 // 响应数据接口
-interface ApiResponse<T = any> {
-  code: number
-  message: string
-  data: T
-}
+
 
 /**
  * 创建超时 Promise

@@ -6,8 +6,8 @@ const routes: RouteRecordRaw[] = [
     path: '/login',
     name: 'Login',
     component: () => import('@/views/auth/Login.vue'),
-    meta: { 
-      title: '登录', 
+    meta: {
+      title: '登录',
       guestOnly: true,
       requiresAuth: false
     }
@@ -16,7 +16,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'Home',
     component: () => import('@/views/Dashboard.vue'),
-    meta: { 
+    meta: {
       title: '首页',
       requiresAuth: true  // 需要登录
     }
@@ -25,7 +25,7 @@ const routes: RouteRecordRaw[] = [
     path: '/test',
     name: 'Test',
     component: () => import('@/views/Dashboard.vue'),
-    meta: { 
+    meta: {
       title: '测试页面',
       requiresAuth: true  // 需要登录
     },
@@ -52,7 +52,7 @@ const routes: RouteRecordRaw[] = [
     path: '/userinfo',
     name: 'userinfo',
     component: () => import('@/views/Userinfo.vue'),
-    meta: { 
+    meta: {
       title: '用户信息页面',
       requiresAuth: true  // 需要登录
     }
@@ -104,9 +104,9 @@ const routes: RouteRecordRaw[] = [
   }
 
 
-  
 
-  
+
+
 
 
   // 404 页面 - 放在最后
@@ -121,7 +121,7 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory('/'),
   routes,
-  scrollBehavior(to, from, savedPosition) {
+  scrollBehavior(to, _from, savedPosition) {
     // 如果有保存的位置，则恢复到该位置
     if (savedPosition) {
       return savedPosition
@@ -136,7 +136,7 @@ const router = createRouter({
 })
 
 // 全局前置守卫
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   // 设置页面标题
   const title = to.meta.title ? `${to.meta.title} | 漏洞情报中心` : '漏洞情报中心'
   document.title = title
@@ -144,23 +144,23 @@ router.beforeEach(async (to, from, next) => {
   // 使用 Pinia store 检查登录状态
   const userStore = useUserStore()
   const isLoggedIn = userStore.isAuthenticated
-  
+
   // 如果是访客专用页面（如登录页），已登录用户跳转到首页
   if (to.meta.guestOnly && isLoggedIn) {
     next({ name: 'Home' })
     return
   }
-  
+
   // 如果需要认证但未登录，重定向到登录页
   if (to.meta.requiresAuth && !isLoggedIn) {
     // 保存要访问的路径，登录后可以跳转回来
-    next({ 
-      name: 'Login', 
-      query: { redirect: to.fullPath } 
+    next({
+      name: 'Login',
+      query: { redirect: to.fullPath }
     })
     return
   }
-  
+
   // 如果已登录，检查 token 是否过期
   if (isLoggedIn && userStore.isTokenExpired()) {
     // 尝试刷新 token
@@ -168,22 +168,22 @@ router.beforeEach(async (to, from, next) => {
     if (!refreshed) {
       // 刷新失败，清除认证信息并跳转登录
       userStore.clearAuth()
-      next({ 
-        name: 'Login', 
-        query: { redirect: to.fullPath } 
+      next({
+        name: 'Login',
+        query: { redirect: to.fullPath }
       })
       return
     }
   }
-  
+
   // 允许访问
   next()
 })
 
 // 路由错误处理
-router.onError((error, to, from) => {
+router.onError((error, _to, _from) => {
   console.error('路由错误:', error)
-  
+
   // 如果是组件加载错误
   if (error.message?.includes('Loading chunk')) {
     // 代码分割导致的加载错误，重新加载页面
@@ -195,16 +195,16 @@ router.onError((error, to, from) => {
 })
 
 // 路由加载进度提示（可选）
-router.beforeResolve(async (to, from, next) => {
+router.beforeResolve(async (_to, _from, next) => {
   // 可以在这里显示加载状态
   // showLoading()
   next()
 })
 
-router.afterEach((to, from) => {
+router.afterEach((_to, _from) => {
   // 可以在这里隐藏加载状态
   // hideLoading()
-  
+
   // 页面访问统计等
   // analytics.track('page_view', { path: to.path, title: to.meta.title })
 })
