@@ -1,4 +1,4 @@
-name: Deploy via SCP (Offline Mode)
+name: Deploy via SCP (Compressed & High Timeout)
 
 on:
   push:
@@ -13,46 +13,48 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    # 2. 构建镜像 (在 GitHub 服务器上构建，网络没问题)
+    # 2. 构建镜像 (在 GitHub 服务器上)
     - name: Build Docker Image
       run: |
-        # 这里的用户名换成您的
         docker build -t ${{ secrets.DOCKER_USERNAME }}/bug-bounty-lite-vue:latest .
 
-    # 3. 将镜像保存为文件
-    - name: Save Image to Tar
+    # 3. 保存并压缩镜像 (关键修改：加了 gzip 压缩，体积减小 70%)
+    - name: Save and Compress Image
       run: |
-        docker save -o vue-deploy.tar ${{ secrets.DOCKER_USERNAME }}/bug-bounty-lite-vue:latest
+        docker save ${{ secrets.DOCKER_USERNAME }}/bug-bounty-lite-vue:latest | gzip > vue-deploy.tar.gz
 
-    # 4. 使用 SCP 将文件传到服务器 (这一步最关键)
-    - name: Copy File to Server
+    # 4. 传输压缩包 (关键修改：timeout 设置为 600秒/10分钟)
+    - name: Copy Compressed File to Server
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: root
         key: ${{ secrets.SERVER_SSH_KEY }}
-        source: "vue-deploy.tar"
+        source: "vue-deploy.tar.gz"
         target: "/opt/deploy/"
+        timeout: "600s" # 设置超时时间为 10 分钟
+        debug: true     # 开启调试模式，方便看卡在哪里
 
-    # 5. SSH 登录服务器进行加载和重启
+    # 5. SSH 登录解压并启动
     - name: Load Image and Restart
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: root
         key: ${{ secrets.SERVER_SSH_KEY }}
+        timeout: "600s" # SSH 执行命令也多给点时间
         script: |
-          echo "📦 接收到离线镜像包，开始加载..."
+          echo "📦 接收到压缩包，开始解压加载..."
           cd /opt/deploy
           
-          # 1. 加载镜像 (不需要联网)
-          docker load -i vue-deploy.tar
+          # 1. 解压并加载镜像 (On-the-fly 解压，不占用额外磁盘)
+          gunzip -c vue-deploy.tar.gz | docker load
           
-          # 2. 重启容器
-          docker compose up -d vue-app
+          # 2. 重启容器 (强制重新创建容器)
+          docker compose up -d --force-recreate vue-app
           
-          # 3. 清理临时文件 (释放空间)
-          rm vue-deploy.tar
+          # 3. 清理文件
+          rm vue-deploy.tar.gz
           docker image prune -f
           
-          echo "✅ 离线部署成功！"
+          echo "✅ 部署成功！"
