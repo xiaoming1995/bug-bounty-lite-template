@@ -1,0 +1,54 @@
+name: Deploy Vue to Docker Hub
+
+on:
+  push:
+    branches: [ "main" ] # 只有推送到 main 分支才触发
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest # 使用 GitHub 提供的服务器
+
+    steps:
+    # 1. 拉取代码
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    # 2. 登录 Docker Hub
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        # 这里的 secrets 需要您在 GitHub 仓库设置里配置
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # 3. 构建并推送镜像
+    - name: Build and Push
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        # ⚠️ 自动拼接：用户名/项目名:latest
+        tags: ${{ secrets.DOCKER_USERNAME }}/bug-bounty-lite-vue:latest
+
+    # 4. 远程连接服务器进行更新
+    - name: Deploy to Server
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: root
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          echo "🚀 开始自动部署..."
+          cd /opt/deploy
+          
+          # 1. 拉取最新镜像
+          # ⚠️ 注意这里也使用了变量拼接，确保名字一致
+          docker pull ${{ secrets.DOCKER_USERNAME }}/bug-bounty-lite-vue:latest
+          
+          # 2. 重新创建 Vue 容器 (使用 -d 后台运行)
+          docker compose up -d vue-app
+          
+          # 3. 清理旧镜像 (释放磁盘空间)
+          docker image prune -f
+          
+          echo "✅ 部署完成！"
