@@ -6,8 +6,8 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
-
+    runs-on: self-hosted
+    timeout-minutes: 720 # 设置超时时间
     steps:
     # 1. 拉取代码
     - name: Checkout Code
