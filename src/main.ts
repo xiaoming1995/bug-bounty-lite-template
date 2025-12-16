@@ -1,5 +1,6 @@
 // src/main.ts
 import { createApp } from 'vue'
+console.log('Main.ts starting...')
 import type { App as AppInstance } from 'vue'
 import App from './App.vue'
 import router from './router/index'
@@ -23,9 +24,9 @@ const pinia = createPinia()
 
 // 插件使用链式调用（更符合TS风格）
 app.use(router)
-   .use(DevUI)
-   .use(pinia)
-   .mount('#app')
+  .use(DevUI)
+  .use(pinia)
+  .mount('#app')
 
 // 环境变量类型声明（可选）
 declare global {
