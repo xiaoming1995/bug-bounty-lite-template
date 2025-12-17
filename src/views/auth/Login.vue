@@ -190,6 +190,7 @@
 
 <script lang="ts">
 import { useUserStore } from '@/stores/user'
+import { forgotPassword } from '@/api/auth'
 
 export default {
   name: 'LoginPage',
@@ -414,8 +415,7 @@ export default {
       }
       
       try {
-        // 调用忘记密码 API
-        const { forgotPassword } = await import('@/api/auth')
+        // 调用忘记密码 API（使用静态导入）
         await forgotPassword(this.resetEmail)
         
         this.closeForgotModal()

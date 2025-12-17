@@ -13,9 +13,11 @@ export default defineConfig({
     // 关闭 sourcemap 加速构建
     sourcemap: false,
     // 提高警告阈值
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000,
     // CSS 代码分割
     cssCodeSplit: true,
+    // 抑制 esbuild CSS 语法警告 (来自 vue-devui 的 IE hack)
+    cssMinify: 'esbuild',
     rollupOptions: {
       output: {
         // 优化 chunk 分割
