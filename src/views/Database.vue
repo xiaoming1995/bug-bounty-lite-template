@@ -980,28 +980,14 @@ onMounted(async () => {
     }
   }
   
-  .empty-state {
-    padding: 0 !important;
-    text-align: center;
+  // 空状态样式 - class 在 td 元素上
+  td.empty-state {
+    padding: 60px 20px !important;
+    text-align: center !important;
     background: #fff;
-    border-radius: 0 0 8px 8px;
-    height: 400px; // 设置固定高度，让空状态显得饱满
-    display: table-row;
-    
-    td {
-      border-bottom: none;
-      padding: 0;
-      vertical-align: middle;
-      height: 400px;
-      
-      &:first-child {
-        border-bottom-left-radius: 8px;
-      }
-      
-      &:last-child {
-        border-bottom-right-radius: 8px;
-      }
-    }
+    border-bottom: none !important;
+
+
     
     .empty-content {
       display: flex;
@@ -1010,8 +996,7 @@ onMounted(async () => {
       justify-content: center;
       gap: 20px;
       color: #9ca3af;
-      height: 100%;
-      min-height: 400px;
+      width: 100%;
       
       :deep(.d-icon) {
         opacity: 0.7;
