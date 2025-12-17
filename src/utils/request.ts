@@ -91,10 +91,12 @@ async function responseInterceptor<T>(response: Response): Promise<T> {
       localStorage.removeItem('user_info')
       localStorage.removeItem('tokenExpiresAt')
 
-      // 只有在非登录页面才跳转（避免登录页面的401错误导致跳转）
-      if (!window.location.pathname.includes('/login')) {
+      // 只有在非登录页面才跳转（支持 hash 和 history 路由）
+      const isLoginPage = window.location.pathname.includes('/login') ||
+        window.location.hash.includes('/login')
+      if (!isLoginPage) {
         setTimeout(() => {
-          window.location.href = '/login'
+          window.location.href = '/#/login'
         }, 100)
       }
     }
