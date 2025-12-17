@@ -2,6 +2,9 @@
 FROM node:22-alpine as builder
 WORKDIR /app
 
+# 👇👇👇 【加入这一行】告诉 Node.js：你可以大胆用到 4GB 内存 (我们刚才加了 Swap，够用了)
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # ⚠️ 关键：设置国内 npm 镜像源 (淘宝/阿里云)
 RUN npm config set registry https://registry.npmmirror.com
 
