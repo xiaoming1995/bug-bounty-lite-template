@@ -2,6 +2,9 @@
 FROM node:22-alpine as builder
 WORKDIR /app
 
+# ⚠️ 关键：设置国内 npm 镜像源 (淘宝/阿里云)
+RUN npm config set registry https://registry.npmmirror.com
+
 # 先复制依赖文件，利用 Docker 缓存
 COPY package*.json ./
 
