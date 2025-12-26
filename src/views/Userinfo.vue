@@ -64,6 +64,14 @@ const rankingInfo = ref({
   monthlyPoints: 850
 })
 
+// 荣誉资质数据
+const certifications = ref([
+  { id: 1, name: 'CISP-PTE', issuer: '中国信息安全测评中心', date: '2023.05', type: 'cert', icon: 'medal' },
+  { id: 2, name: 'CISSP', issuer: 'ISC²', date: '2022.11', type: 'cert', icon: 'verified' },
+  { id: 3, name: '2023年度核心白帽子', issuer: '漏洞赏金平台', date: '2023.12', type: 'honor', icon: 'trophy' },
+  { id: 4, name: '漏洞挖掘精英奖', issuer: 'Ssrc安全应急中心', date: '2024.01', type: 'honor', icon: 'star' }
+])
+
 // 方法
 const handleEdit = () => {
   editMode.value = true
@@ -240,6 +248,27 @@ const submitPasswordChange = async () => {
             <div class="info-item">
               <label>最后登录</label>
               <d-input :model-value="userInfo.lastLogin" disabled />
+            </div>
+          </div>
+
+          <!-- 荣誉资质 -->
+          <div class="cert-section">
+            <h3>
+              <d-icon name="medal" />
+              荣誉资质
+            </h3>
+            <div class="cert-grid">
+              <div v-for="cert in certifications" :key="cert.id" class="cert-item" :class="cert.type">
+                <div class="cert-icon">
+                  <d-icon :name="cert.icon" />
+                </div>
+                <div class="cert-info">
+                  <div class="cert-name">{{ cert.name }}</div>
+                  <div class="cert-issuer">{{ cert.issuer }} · {{ cert.date }}</div>
+                </div>
+                <div v-if="cert.type === 'honor'" class="cert-tag">荣誉</div>
+                <div v-else class="cert-tag">认证</div>
+              </div>
             </div>
           </div>
 
@@ -513,6 +542,121 @@ const submitPasswordChange = async () => {
   }
 }
 
+// 荣誉资质样式
+.cert-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #f1f5f9;
+
+  h3 {
+    margin: 0 0 16px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .devui-icon {
+      color: #f59e0b; // Gold for medal icon
+    }
+  }
+}
+
+.cert-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.cert-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+
+  // Certification Style (Blue)
+  &.cert {
+    background: #f0f9ff;
+    border-color: #bae6fd;
+
+    .cert-icon {
+      background: #e0f2fe;
+      color: #0ea5e9;
+    }
+
+    .cert-tag {
+      background: #0ea5e9;
+    }
+    
+    &:hover {
+      background: #e0f2fe;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.1);
+    }
+  }
+
+  // Honor Style (Gold)
+  &.honor {
+    background: #fffbeb;
+    border-color: #fde68a;
+
+    .cert-icon {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .cert-tag {
+      background: #d97706;
+    }
+
+    &:hover {
+      background: #fef3c7;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.1);
+    }
+  }
+
+  .cert-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+
+  .cert-info {
+    flex: 1;
+
+    .cert-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 2px;
+    }
+
+    .cert-issuer {
+      font-size: 12px;
+      color: #64748b;
+    }
+  }
+
+  .cert-tag {
+    font-size: 10px;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+}
+
 // 右侧区域布局调整
 .side-section {
   display: flex;
@@ -716,6 +860,11 @@ const submitPasswordChange = async () => {
     flex-direction: column;
     text-align: center;
     gap: 4px;
+  }
+
+  .cert-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 

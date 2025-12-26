@@ -13,18 +13,18 @@ const preferences = reactive({
   darkMode: false
 })
 
+// 隐私设置数据
+const privacySettings = reactive({
+  publicProfile: true, // 公开主页
+  showRanking: true,   // 参与排行榜展示
+  allowContact: true   // 允许站内私信
+})
+
 // 安全设置数据
 const securityInfo = reactive({
   phone: '138****8888',
   email: 'security@example.com'
 })
-
-// 登录设备数据
-const loginDevices = ref([
-  { id: 1, name: 'MacBook Pro 14"', location: '杭州', ip: '192.168.1.100', time: '当前设备', icon: 'laptop', active: true },
-  { id: 2, name: 'Windows 11 Desktop', location: '上海', ip: '10.0.0.55', time: '2小时前', icon: 'pc', active: false },
-  { id: 3, name: 'Ubuntu Workstation', location: '北京', ip: '172.16.0.5', time: '3天前', icon: 'pc', active: false }
-])
 
 // 密码修改表单
 const passwordForm = reactive({
@@ -99,12 +99,16 @@ const submitPasswordChange = async () => {
       <p class="page-desc">管理您的系统偏好设置和快捷操作</p>
     </div>
 
-    <div class="page-content">
-      <div class="left-section">
+    <d-row :gutter="24" class="settings-content">
+      <!-- 左侧：系统偏好 -->
+      <d-col :xs="24" :lg="16">
         <!-- 系统偏好设置 -->
-        <div class="preferences-card card-common">
+        <d-card class="preferences-card">
           <div class="card-header">
-            <h3><d-icon name="setting" />系统偏好</h3>
+            <h3>
+              <d-icon name="setting" />
+              系统偏好
+            </h3>
           </div>
 
           <div class="preferences-items">
@@ -140,12 +144,15 @@ const submitPasswordChange = async () => {
               <d-switch v-model="preferences.darkMode" />
             </div>
           </div>
-        </div>
+        </d-card>
 
         <!-- 安全设置卡片 -->
-        <div class="security-card card-common">
+        <d-card class="security-card">
           <div class="card-header">
-            <h3><d-icon name="shield" />安全设置</h3>
+            <h3>
+              <d-icon name="shield" />
+              安全设置
+            </h3>
           </div>
 
           <div class="security-items">
@@ -199,15 +206,18 @@ const submitPasswordChange = async () => {
               </d-button>
             </div>
           </div>
+        </d-card>
+      </d-col>
 
-        </div>
-      </div>
-
-      <div class="right-section">
+      <!-- 右侧：快捷操作和帮助支持 -->
+      <d-col :xs="24" :lg="8">
         <!-- 快捷操作 -->
-        <div class="quick-actions-card card-common">
+        <d-card class="quick-actions-card">
           <div class="card-header">
-            <h3><d-icon name="flash" />快捷操作</h3>
+            <h3>
+              <d-icon name="flash" />
+              快捷操作
+            </h3>
           </div>
 
           <div class="quick-actions">
@@ -247,383 +257,388 @@ const submitPasswordChange = async () => {
               导出数据
             </d-button>
           </div>
-        </div>
+        </d-card>
 
         <!-- 帮助与支持 -->
-        <div class="help-card card-common">
+        <d-card class="help-card">
           <div class="card-header">
-            <h3><d-icon name="help" />帮助与支持</h3>
+            <h3>
+              <d-icon name="help" />
+              帮助与支持
+            </h3>
           </div>
-          <div class="help-links">
-            <a href="#" class="help-link"><d-icon name="book" /><span>用户手册</span></a>
-            <a href="#" class="help-link"><d-icon name="question" /><span>常见问题</span></a>
-            <a href="#" class="help-link"><d-icon name="message" /><span>联系客服</span></a>
-            <a href="#" class="help-link"><d-icon name="feedback" /><span>意见反馈</span></a>
-          </div>
-        </div>
 
-        <!-- 登录设备 -->
-        <div class="devices-card card-common">
-          <div class="card-header">
-            <h3><d-icon name="laptop" />登录设备</h3>
+          <div class="help-links">
+            <a href="#" class="help-link">
+              <d-icon name="book" />
+              <span>用户手册</span>
+            </a>
+            <a href="#" class="help-link">
+              <d-icon name="question" />
+              <span>常见问题</span>
+            </a>
+            <a href="#" class="help-link">
+              <d-icon name="message" />
+              <span>联系客服</span>
+            </a>
+            <a href="#" class="help-link">
+              <d-icon name="feedback" />
+              <span>意见反馈</span>
+            </a>
           </div>
-          <div class="device-list">
-            <div v-for="device in loginDevices" :key="device.id" class="device-item">
-              <div class="device-icon">
-                <d-icon :name="device.icon === 'mobile' ? 'mobile' : 'laptop'" />
-              </div>
-              <div class="device-info">
-                <div class="device-name">
-                  {{ device.name }}
-                  <d-tag v-if="device.active" color="success" size="sm">当前</d-tag>
-                </div>
-                <div class="device-meta">{{ device.location }} · {{ device.ip }}</div>
-                <div class="device-time">{{ device.time }}</div>
-              </div>
+        </d-card>
+
+        <!-- 隐私与可见性 -->
+        <d-card class="privacy-card">
+          <div class="card-header">
+            <h3>
+              <d-icon name="preview" />
+              隐私可见性
+            </h3>
+          </div>
+          
+          <div class="privacy-items">
+            <div class="privacy-item">
+              <span>公开主页信息</span>
+              <d-switch v-model="privacySettings.publicProfile" />
+            </div>
+            <div class="privacy-item">
+              <span>参与排行榜展示</span>
+              <d-switch v-model="privacySettings.showRanking" />
+            </div>
+            <div class="privacy-item">
+              <span>允许站内私信</span>
+              <d-switch v-model="privacySettings.allowContact" />
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </d-card>
+      </d-col>
+    </d-row>
   </div>
 
   <!-- 密码修改弹窗 -->
-  <!-- 密码修改弹窗（自定义实现） -->
-  <Teleport to="body">
-    <div v-if="showPasswordModal" class="custom-modal-overlay" @click.self="showPasswordModal = false">
-      <div class="custom-modal">
-        <div class="modal-header">
-          <h3>修改密码</h3>
-          <button class="close-btn" @click="showPasswordModal = false">
-            <d-icon name="close" />
-          </button>
-        </div>
-        
-        <d-form :data="passwordForm" layout="vertical">
-          <d-form-item label="当前密码">
-            <d-input v-model="passwordForm.oldPassword" type="password" placeholder="请输入当前密码" />
-          </d-form-item>
-          <d-form-item label="新密码">
-            <d-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码" />
-          </d-form-item>
-          <d-form-item label="确认新密码">
-            <d-input v-model="passwordForm.confirmPassword" type="password" placeholder="请再次输入新密码" />
-          </d-form-item>
-        </d-form>
+  <d-modal
+    v-model:visible="showPasswordModal"
+    title="修改密码"
+    :show-close="true"
+    width="400px"
+  >
+    <d-form
+      :data="passwordForm"
+      layout="vertical"
+      class="password-form"
+    >
+      <d-form-item label="当前密码">
+        <d-input
+          v-model="passwordForm.oldPassword"
+          type="password"
+          placeholder="请输入当前密码"
+        />
+      </d-form-item>
 
-        <div class="modal-footer">
-          <d-button @click="showPasswordModal = false">取消</d-button>
-          <d-button bs-style="primary" :loading="loading" @click="submitPasswordChange" style="margin-left: 12px">确认修改</d-button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
+      <d-form-item label="新密码">
+        <d-input
+          v-model="passwordForm.newPassword"
+          type="password"
+          placeholder="请输入新密码"
+        />
+      </d-form-item>
+
+      <d-form-item label="确认新密码">
+        <d-input
+          v-model="passwordForm.confirmPassword"
+          type="password"
+          placeholder="请再次输入新密码"
+        />
+      </d-form-item>
+    </d-form>
+
+    <template #footer>
+      <d-button @click="showPasswordModal = false">取消</d-button>
+      <d-button
+        bs-style="primary"
+        :loading="loading"
+        @click="submitPasswordChange"
+      >
+        确认修改
+      </d-button>
+    </template>
+  </d-modal>
 </template>
 
 <style scoped lang="scss">
 .settings-container {
   padding: 24px;
-  background: #f8fafc;
-  min-height: calc(100vh - 64px);
+  background: #f5f7fa;
   height: calc(100vh - 64px);
-  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
 }
 
-.page-header {
-  width: 100%;
-  max-width: 1200px;
-  margin-bottom: 24px;
+.settings-content {
+  flex: 1;
+  min-height: 0; // Fix for flex child scrolling
+}
+
+// Adjust columns to fill height
+:deep(.devui-col) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+// Left column cards wrapper if needed, or target cards directly
+// Assuming d-col direct children are the cards. We want them to just flow?
+// Actually left side has 2 cards. Security card usually is taller.
+
+// Right column components
+.quick-actions-card, .help-card {
   flex-shrink: 0;
 }
 
-.page-content {
-  width: 100%;
-  max-width: 1200px;
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 24px;
-  height: 100%;
-  min-height: 0;
-}
-
-.left-section, .right-section {
+.privacy-card {
+  flex: 1; // Privacy card fills remaining space
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  min-height: 0;
-  overflow-y: auto;
-  padding-bottom: 24px;
   
-  &::-webkit-scrollbar {
-    width: 0px;
+  .privacy-items {
+    flex: 1; // Items area fills card
+    // You might want to space items out if they are too sparse
+    // display: flex; flex-direction: column; justify-content: space-around;
   }
 }
 
-.card-common {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  }
-}
+.page-header {
+  margin-bottom: 24px;
 
-.card-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  .devui-icon {
-    color: #5e7ce0;
+  .page-title {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 600;
+    color: #252b3a;
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
-}
 
-// Preference & Security Items
-.preference-item, .security-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 0;
-  border-bottom: 1px solid #f1f5f9;
-  
-  &:last-child {
-    border-bottom: none;
-  }
-  
-  .preference-title, .security-title {
+  .page-desc {
+    margin: 0;
     font-size: 14px;
-    font-weight: 500;
-    color: #1e293b;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    
-    .devui-icon {
-      color: #94a3b8;
-      font-size: 16px;
-    }
-  }
-  
-  .preference-desc, .security-desc {
-    font-size: 12px;
-    color: #64748b;
+    color: #666;
   }
 }
 
-// Quick Actions
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  
-  .quick-action-btn {
-    height: 48px;
-    width: 100%;
-    justify-content: center;
-    font-weight: 500;
+// 卡片通用样式
+.card-header {
+  margin-bottom: 20px;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #252b3a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 }
 
-// Help Links
-.help-links {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  
-  .help-link {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 20px;
-    background: #f8fafc;
-    border-radius: 8px;
-    text-decoration: none;
-    color: #64748b;
-    font-size: 13px;
-    border: 1px solid transparent;
-    transition: all 0.2s;
-    
-    .devui-icon {
-      font-size: 24px;
-      color: #94a3b8;
-    }
-    
-    &:hover {
-      background: #fff;
-      border-color: #e2e8f0;
-      color: #5e7ce0;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-      transform: translateY(-2px);
-      
-      .devui-icon {
-        color: #5e7ce0;
+// 偏好设置卡片
+.preferences-card {
+  margin-bottom: 24px;
+
+  .preferences-items {
+    .preference-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .preference-info {
+        flex: 1;
+
+        .preference-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: #333;
+          margin-bottom: 4px;
+        }
+
+        .preference-desc {
+          font-size: 12px;
+          color: #666;
+        }
       }
     }
   }
 }
 
-// Device List
-.device-list {
+// 安全设置卡片
+.security-card {
+  margin-bottom: 24px;
+  flex: 1; // Fill remaining space in left column
   display: flex;
   flex-direction: column;
-  gap: 12px;
+
+  .security-items {
+    flex: 1; // Content area fills card
+    // distribute items evenly if needed
+    // display: flex; flex-direction: column; justify-content: space-between;
+  
+    .security-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .security-info {
+        flex: 1;
+
+        .security-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #333;
+          margin-bottom: 4px;
+        }
+
+        .security-desc {
+          font-size: 12px;
+          color: #666;
+        }
+      }
+    }
+  }
 }
 
-.device-item {
-  display: flex;
-  align-items: center; // Align center vertically
-  gap: 16px; // Increase gap
-  padding: 16px; // Increase padding
-  background: #ffffff; // White background
-  border: 1px solid #f1f5f9; // Subtle border
-  border-radius: 12px; // Rounded corners
-  transition: all 0.3s ease;
-  
-  &:hover {
-    border-color: #e2e8f0;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    transform: translateY(-2px);
+// 密码表单
+.password-form {
+  :deep(.devui-form-item) {
+    margin-bottom: 16px;
   }
-  
-  .device-icon {
-    width: 42px; // Larger icon
-    height: 42px;
-    background: #f8fafc;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #64748b;
-    font-size: 20px; // Larger icon size
-    transition: all 0.3s;
-  }
+}
 
-  &:hover .device-icon {
-    background: #eff6ff;
-    color: #3b82f6;
+// 快捷操作卡片
+.quick-actions-card {
+  margin-bottom: 24px;
+
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+
+    .quick-action-btn {
+      width: 100%;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 6px;
+      transition: all 0.3s;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+    }
   }
-  
-  .device-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    
-    .device-name {
-      font-size: 15px; // Slightly larger title
-      font-weight: 600;
-      color: #1e293b;
-      margin-bottom: 4px;
+}
+
+// 帮助卡片
+.help-card {
+  .help-links {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+
+    .help-link {
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-    
-    .device-meta {
-      font-size: 13px;
-      color: #64748b;
-    }
-
-    .device-time {
-      font-size: 12px;
-      color: #94a3b8;
-      margin-top: 2px;
-    }
-  }
-}
-
-// Custom Modal Theme
-.custom-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  backdrop-filter: blur(4px);
-}
-
-.custom-modal {
-  background: #fff;
-  width: 400px;
-  max-width: 90%;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  animation: modalFadeIn 0.3s ease-out;
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-
-    h3 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-      color: #1e293b;
-    }
-
-    .close-btn {
-      border: none;
-      background: none;
-      color: #94a3b8;
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      transition: all 0.2s;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      text-decoration: none;
+      color: #666;
+      font-size: 14px;
+      transition: all 0.3s;
 
       &:hover {
-        background: #f1f5f9;
-        color: #64748b;
+        background: #e9ecef;
+        color: #5e7ce0;
+        text-decoration: none;
+      }
+
+      .devui-icon {
+        font-size: 16px;
       }
     }
   }
+}
 
-  .modal-footer {
-    margin-top: 24px;
-    display: flex;
-    justify-content: flex-end;
+// 隐私设置卡片
+.privacy-card {
+  .privacy-items {
+    .privacy-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      span {
+        font-size: 14px;
+        color: #333;
+      }
+    }
   }
 }
 
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
+// 响应式设计
+@media (max-width: 768px) {
+  .settings-container {
+    padding: 16px;
+    height: auto !important;
+    display: block !important;
+    overflow-y: visible !important;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
 
-@media (max-width: 900px) {
-  .page-content {
-    grid-template-columns: 1fr;
-    height: auto;
+  .quick-actions {
+    grid-template-columns: 1fr !important;
+
+    .quick-action-btn {
+      height: 40px !important;
+    }
+  }
+
+  .help-links {
+    grid-template-columns: 1fr !important;
   }
   
-  .settings-container {
-    height: auto;
+  :deep(.devui-col) {
+    height: auto !important;
+    margin-bottom: 24px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
 }
 </style>
