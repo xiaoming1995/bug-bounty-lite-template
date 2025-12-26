@@ -58,6 +58,39 @@ function requestInterceptor(config: RequestConfig): RequestConfig {
 /**
  * 响应拦截器 - 统一处理响应
  */
+/**
+ * 处理未授权情况
+ */
+function handleUnauthorized() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('auth_token')
+  localStorage.removeItem('refreshToken')
+  localStorage.removeItem('userInfo')
+  localStorage.removeItem('user_info')
+  localStorage.removeItem('tokenExpiresAt')
+
+  // 只有在非登录页面才跳转（支持 hash 和 history 路由）
+  const isLoginPage = window.location.pathname.includes('/login') ||
+    window.location.hash.includes('/login')
+
+  if (!isLoginPage) {
+    // 使用 setTimeout 确保在当前执行栈完成后跳转
+    setTimeout(() => {
+      // 优先尝试 hash 路由跳转
+      if (window.location.hash) {
+        window.location.href = '#/login'
+      } else {
+        window.location.href = '/login'
+      }
+      // 强制刷新以确保状态清除
+      window.location.reload()
+    }, 100)
+  }
+}
+
+/**
+ * 响应拦截器 - 统一处理响应
+ */
 async function responseInterceptor<T>(response: Response): Promise<T> {
   // 解析响应数据（先解析，再判断状态码）
   const contentType = response.headers.get('content-type')
@@ -82,23 +115,9 @@ async function responseInterceptor<T>(response: Response): Promise<T> {
       }
     }
 
-    // 401 未授权，清除 token 并跳转登录（但不影响当前登录流程）
+    // 401 未授权，清除 token 并跳转登录
     if (response.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('userInfo')
-      localStorage.removeItem('user_info')
-      localStorage.removeItem('tokenExpiresAt')
-
-      // 只有在非登录页面才跳转（支持 hash 和 history 路由）
-      const isLoginPage = window.location.pathname.includes('/login') ||
-        window.location.hash.includes('/login')
-      if (!isLoginPage) {
-        setTimeout(() => {
-          window.location.href = '/#/login'
-        }, 100)
-      }
+      handleUnauthorized()
     }
 
     // 抛出错误，但不跳转（由调用方处理）
@@ -114,6 +133,11 @@ async function responseInterceptor<T>(response: Response): Promise<T> {
     if (responseData.code === 200 || responseData.code === 0) {
       return responseData.data as T
     } else {
+      // 检查业务逻辑中的 401
+      if (responseData.code === 401) {
+        handleUnauthorized()
+      }
+
       // 非200状态码，抛出错误
       const error = new Error(responseData.message || '请求失败') as any
       error.status = responseData.code
