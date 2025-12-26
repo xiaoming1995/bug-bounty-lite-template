@@ -40,6 +40,9 @@ const handleUserMenuClick = async (data: any) => {
     case 'message':
       router.push('/message')
       break
+    case 'ranking':
+      router.push('/ranking')
+      break
     case 'logout':
       // 处理退出登录
       await handleLogout()
@@ -128,6 +131,10 @@ const handleSubmitVulnerability = () => {
         <d-menu-item id="analysis" key="analysis">
           <template #icon><d-icon name="analysis"/></template>
           漏洞报告
+        </d-menu-item>
+        <d-menu-item id="ranking" key="ranking">
+          <template #icon><d-icon name="trophy"/></template>
+          排行榜
         </d-menu-item>
       </d-menu>
     </div>

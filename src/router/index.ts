@@ -101,6 +101,15 @@ const routes: RouteRecordRaw[] = [
       title: 'CNNVD动态',
       requiresAuth: true  // 需要登录
     }
+  },
+  {
+    path: '/ranking',
+    name: 'ranking',
+    component: () => import('@/views/Ranking.vue'),
+    meta: {
+      title: '白帽子排行榜',
+      requiresAuth: true
+    }
   }
 
 
