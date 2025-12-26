@@ -11,7 +11,8 @@ const userInfo = reactive({
   department: '安全研究部',
   position: '高级安全工程师',
   lastLogin: '2024-01-20 14:30:25',
-  status: '在线'
+  status: '在线',
+  bio: '专注于Web安全研究5年，擅长漏洞挖掘与渗透测试。曾发现多个高危漏洞，获得多家知名企业致谢。热爱技术分享，致力于推动安全社区发展。'
 })
 
 // 表单数据
@@ -20,7 +21,8 @@ const formData = reactive({
   email: userInfo.email,
   phone: userInfo.phone,
   department: userInfo.department,
-  position: userInfo.position
+  position: userInfo.position,
+  bio: userInfo.bio
 })
 
 // 密码修改表单
@@ -44,6 +46,24 @@ const userStats = ref([
   { label: '在线天数', value: 298, color: '#10b981' }
 ])
 
+// 技能分布数据
+const skillData = ref([
+  { name: 'Web安全', value: 90 },
+  { name: '渗透测试', value: 85 },
+  { name: '代码审计', value: 75 },
+  { name: '逆向工程', value: 60 },
+  { name: '移动安全', value: 55 },
+  { name: '社会工程', value: 70 }
+])
+
+// 排行榜数据
+const rankingInfo = ref({
+  overall: 28,
+  totalUsers: 1256,
+  weeklyRank: 12,
+  monthlyPoints: 850
+})
+
 // 方法
 const handleEdit = () => {
   editMode.value = true
@@ -56,7 +76,8 @@ const handleCancel = () => {
     email: userInfo.email,
     phone: userInfo.phone,
     department: userInfo.department,
-    position: userInfo.position
+    position: userInfo.position,
+    bio: userInfo.bio
   })
 }
 
@@ -94,8 +115,14 @@ const handlePasswordChange = () => {
 }
 
 const submitPasswordChange = async () => {
+  if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+    alert('请输入新密码')
+    return
+  }
+
   if (passwordForm.newPassword !== passwordForm.confirmPassword) {
     console.error('两次输入的密码不一致')
+    alert('两次输入的密码不一致，请重新输入')
     return
   }
 
@@ -109,8 +136,10 @@ const submitPasswordChange = async () => {
       confirmPassword: ''
     })
     console.log('密码修改成功')
+    alert('密码修改成功！')
   } catch (error) {
     console.error('密码修改失败:', error)
+    alert('密码修改失败，请重试')
   } finally {
     loading.value = false
   }
@@ -157,6 +186,10 @@ const submitPasswordChange = async () => {
 
             <div class="header-actions">
               <template v-if="!editMode">
+                <d-button bs-style="secondary" @click="handlePasswordChange" class="mr-2">
+                  <template #icon><d-icon name="lock" /></template>
+                  修改密码
+                </d-button>
                 <d-button bs-style="primary" @click="handleEdit">
                   <template #icon><d-icon name="edit" /></template>
                   编辑
@@ -167,6 +200,19 @@ const submitPasswordChange = async () => {
                 <d-button bs-style="common" @click="handleCancel">取消</d-button>
               </template>
             </div>
+          </div>
+
+          <!-- 个人简介 -->
+          <div class="bio-section">
+            <h3>个人简介</h3>
+            <div v-if="!editMode" class="bio-text">{{ userInfo.bio }}</div>
+            <d-textarea
+              v-else
+              v-model="formData.bio"
+              :rows="3"
+              resize="none"
+              placeholder="请输入个人简介"
+            />
           </div>
 
           <!-- 信息表单 -->
@@ -197,17 +243,13 @@ const submitPasswordChange = async () => {
             </div>
           </div>
 
-          <div class="card-footer">
-            <d-button bs-style="text" @click="handlePasswordChange">
-              <template #icon><d-icon name="lock" /></template>
-              修改密码
-            </d-button>
-          </div>
+
         </div>
       </div>
 
-      <!-- 右侧：统计 -->
+      <!-- 右侧：统计与技能 -->
       <div class="side-section">
+        <!-- 数据概览 -->
         <div class="stats-card">
           <h3>数据概览</h3>
           <div class="stats-list">
@@ -217,49 +259,99 @@ const submitPasswordChange = async () => {
             </div>
           </div>
         </div>
+
+        <!-- 技能分布 -->
+        <div class="skill-card">
+          <h3>技能分布</h3>
+          <div class="skill-chart">
+            <div v-for="skill in skillData" :key="skill.name" class="skill-item">
+              <div class="skill-header">
+                <span class="skill-name">{{ skill.name }}</span>
+                <span class="skill-value">{{ skill.value }}%</span>
+              </div>
+              <div class="skill-bar">
+                <div class="skill-progress" :style="{ width: skill.value + '%' }"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 排行榜 -->
+        <div class="ranking-card">
+          <h3>我的排名</h3>
+          <div class="ranking-content">
+            <div class="ranking-main">
+              <span class="ranking-number">#{{ rankingInfo.overall }}</span>
+              <span class="ranking-total">/ {{ rankingInfo.totalUsers }}</span>
+            </div>
+            <div class="ranking-details">
+              <div class="ranking-item">
+                <span class="ranking-label">本周排名</span>
+                <span class="ranking-value">#{{ rankingInfo.weeklyRank }}</span>
+              </div>
+              <div class="ranking-item">
+                <span class="ranking-label">本月积分</span>
+                <span class="ranking-value">{{ rankingInfo.monthlyPoints }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- 密码修改弹窗 -->
-  <d-modal
-    v-model:visible="showPasswordModal"
-    title="修改密码"
-    :show-close="true"
-    width="400px"
-  >
-    <d-form :data="passwordForm" layout="vertical">
-      <d-form-item label="当前密码">
-        <d-input v-model="passwordForm.oldPassword" type="password" placeholder="请输入当前密码" />
-      </d-form-item>
-      <d-form-item label="新密码">
-        <d-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码" />
-      </d-form-item>
-      <d-form-item label="确认新密码">
-        <d-input v-model="passwordForm.confirmPassword" type="password" placeholder="请再次输入新密码" />
-      </d-form-item>
-    </d-form>
+  <!-- 密码修改弹窗（自定义实现以确保显示） -->
+  <Teleport to="body">
+    <div v-if="showPasswordModal" class="custom-modal-overlay" @click.self="showPasswordModal = false">
+      <div class="custom-modal">
+        <div class="modal-header">
+          <h3>修改密码</h3>
+          <button class="close-btn" @click="showPasswordModal = false">
+            <d-icon name="close" />
+          </button>
+        </div>
+        
+        <d-form :data="passwordForm" layout="vertical">
+          <d-form-item label="当前密码">
+            <d-input v-model="passwordForm.oldPassword" type="password" placeholder="请输入当前密码" />
+          </d-form-item>
+          <d-form-item label="新密码">
+            <d-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码" />
+          </d-form-item>
+          <d-form-item label="确认新密码">
+            <d-input v-model="passwordForm.confirmPassword" type="password" placeholder="请再次输入新密码" />
+          </d-form-item>
+        </d-form>
 
-    <template #footer>
-      <d-button @click="showPasswordModal = false">取消</d-button>
-      <d-button bs-style="primary" :loading="loading" @click="submitPasswordChange">确认修改</d-button>
-    </template>
-  </d-modal>
+        <div class="modal-footer">
+          <d-button @click="showPasswordModal = false">取消</d-button>
+          <d-button bs-style="primary" :loading="loading" @click="submitPasswordChange" style="margin-left: 12px">确认修改</d-button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped lang="scss">
 .userinfo-page {
   min-height: calc(100vh - 64px);
+  height: calc(100vh - 64px);
   background: #f8fafc;
   padding: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .page-content {
   max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  height: 100%;
   display: grid;
   grid-template-columns: 1fr 280px;
   gap: 24px;
+  align-items: stretch;
 }
 
 .user-card {
@@ -267,6 +359,10 @@ const submitPasswordChange = async () => {
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .user-header {
@@ -333,12 +429,20 @@ const submitPasswordChange = async () => {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+  
+  .mr-2 {
+    margin-right: 8px;
+    position: relative;
+    z-index: 10;
+  }
 }
 
 .info-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
+  flex: 1;
+  align-content: start;
 }
 
 .info-item {
@@ -359,25 +463,7 @@ const submitPasswordChange = async () => {
   }
 }
 
-.card-footer {
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #f1f5f9;
-}
 
-.stats-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-
-  h3 {
-    margin: 0 0 16px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #1e293b;
-  }
-}
 
 .stats-list {
   display: flex;
@@ -404,6 +490,163 @@ const submitPasswordChange = async () => {
   }
 }
 
+// 个人简介样式
+.bio-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 10px;
+  border-left: 4px solid #5e7ce0;
+
+  h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  .bio-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #475569;
+  }
+}
+
+// 右侧区域布局调整
+.side-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+}
+
+.stats-card,
+.skill-card,
+.ranking-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  h3 {
+    margin: 0 0 16px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+}
+
+.stats-card {
+  flex-shrink: 0;
+}
+
+// 技能卡片样式
+.skill-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  .skill-chart {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+  }
+}
+
+.skill-item {
+  .skill-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .skill-name {
+    font-size: 13px;
+    color: #475569;
+    font-weight: 500;
+  }
+
+  .skill-value {
+    font-size: 12px;
+    color: #5e7ce0;
+    font-weight: 600;
+  }
+
+  .skill-bar {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .skill-progress {
+    height: 100%;
+    background: linear-gradient(90deg, #5e7ce0, #7c3aed);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+}
+
+// 排行榜卡片样式
+.ranking-card {
+  flex-shrink: 0;
+
+  .ranking-content {
+    text-align: center;
+  }
+
+  .ranking-main {
+    margin-bottom: 16px;
+    padding: 16px;
+    background: linear-gradient(135deg, #5e7ce0 0%, #7c3aed 100%);
+    border-radius: 10px;
+    color: #fff;
+  }
+
+  .ranking-number {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -1px;
+  }
+
+  .ranking-total {
+    font-size: 16px;
+    opacity: 0.8;
+    margin-left: 4px;
+  }
+
+  .ranking-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .ranking-item {
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .ranking-label {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 4px;
+  }
+
+  .ranking-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+}
+
 @media (max-width: 900px) {
   .page-content {
     grid-template-columns: 1fr;
@@ -411,12 +654,32 @@ const submitPasswordChange = async () => {
 
   .side-section {
     order: -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    height: auto;
+  }
+
+  .stats-card,
+  .skill-card,
+  .ranking-card {
+    flex: 1;
+    min-width: 200px;
   }
 }
 
 @media (max-width: 640px) {
   .userinfo-page {
     padding: 16px;
+    height: auto;
+    min-height: calc(100vh - 64px);
+  }
+
+  .page-content {
+    height: auto;
+  }
+
+  .user-card {
+    height: auto;
   }
 
   .user-header {
@@ -433,6 +696,16 @@ const submitPasswordChange = async () => {
     grid-template-columns: 1fr;
   }
 
+  .side-section {
+    flex-direction: column;
+  }
+
+  .stats-card,
+  .skill-card,
+  .ranking-card {
+    min-width: 100%;
+  }
+
   .stats-list {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -443,6 +716,77 @@ const submitPasswordChange = async () => {
     flex-direction: column;
     text-align: center;
     gap: 4px;
+  }
+}
+
+// 自定义弹窗样式
+.custom-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.custom-modal {
+  background: #fff;
+  width: 400px;
+  max-width: 90%;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: modalFadeIn 0.3s ease-out;
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+
+    h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .close-btn {
+      border: none;
+      background: none;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s;
+
+      &:hover {
+        background: #f1f5f9;
+        color: #64748b;
+      }
+    }
+  }
+
+  .modal-footer {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 </style>
