@@ -24,9 +24,18 @@ const userMenuOptions = ref([
   { id: 'logout', name: '退出登录', icon: 'log-out' }
 ])
 
-const handleUserMenuClick = async (data: any) => {
-  // DevUI menu 的 select 事件会传递 { id, key } 对象
-  const itemId = data.id || data.key
+const toggleUserDropdown = () => {
+  userDropdownVisible.value = !userDropdownVisible.value
+}
+
+// Close dropdown when clicking outside (simple implementation)
+if (typeof window !== 'undefined') {
+  window.addEventListener('click', () => {
+    userDropdownVisible.value = false
+  })
+}
+
+const handleMenuClick = async (itemId: string) => {
   console.log('用户菜单点击:', itemId)
   userDropdownVisible.value = false
 
@@ -44,7 +53,6 @@ const handleUserMenuClick = async (data: any) => {
       router.push('/ranking')
       break
     case 'logout':
-      // 处理退出登录
       await handleLogout()
       break
   }
@@ -149,32 +157,27 @@ const handleSubmitVulnerability = () => {
       >
         提交漏洞
       </button>
-        <div class="user-dropdown-container">
-        <d-menu 
-          mode="horizontal" 
-          class="user-trigger" 
-          :router="false"
-          @select="handleUserMenuClick"
-        >
-          <d-avatar :width="32" :height="32" :icon="!userInfo.avatar && 'user'">
-            <img v-if="userInfo.avatar" :src="userInfo.avatar" alt="avatar">
-          </d-avatar>
-          <d-sub-menu :title="userInfo.name" key="course" class="username">
-            <d-menu-item   
-              v-for="item in userMenuOptions" 
-              :key="item.id" 
-              :id="item.id"
-            >
-              <template #icon>
-                <d-icon :name="item.icon" />
-              </template>
-              {{ item.name }} 
-            </d-menu-item>
-          </d-sub-menu>
-        </d-menu>
-    </div>
-      <div class="user-dropdown-container">
-      
+      <!-- 用户个人中心 -->
+      <div class="user-profile-trigger" @click.stop="toggleUserDropdown">
+        <d-avatar :width="32" :height="32" :is-round="true" :img-src="userInfo.avatar || ''" class="user-avatar">
+          <template #avatar v-if="!userInfo.avatar">{{ userInfo.name.substring(0,1) }}</template>
+        </d-avatar>
+        <span class="username">{{ userInfo.name }}</span>
+        <d-icon name="chevron-down" class="dropdown-arrow" :class="{ 'is-active': userDropdownVisible }" />
+        
+        <!-- 下拉菜单 -->
+        <div class="custom-dropdown-menu" v-show="userDropdownVisible" @click.stop>
+          <div 
+            v-for="item in userMenuOptions" 
+            :key="item.id" 
+            class="dropdown-item"
+            :class="{ 'danger': item.id === 'logout' }"
+            @click="handleMenuClick(item.id)"
+          >
+            <d-icon :name="item.icon" class="item-icon" />
+            <span>{{ item.name }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -272,47 +275,125 @@ const handleSubmitVulnerability = () => {
       }
     }
 
-    .user-dropdown-container {
+    .user-profile-trigger {
+      display: flex;
+      align-items: center;
+      padding: 4px 8px 4px 4px;
+      margin-left: 8px;
+      cursor: pointer;
+      border-radius: 99px;
+      border: 1px solid transparent;
+      background: #fff;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      
-      .user-trigger {
-        display: flex;
-        align-items: center;
-        padding: 4px 12px;
-        cursor: pointer;
-        border-radius: 16px;
-        transition: all 0.3s;
-        
-        &:hover {
-          background: #f2f5fc;
-        }
-        
-        .username {
-          margin: 0 8px;
-          font-size: 14px;
-        }
-        
-        .devui-icon {
-          transition: transform 0.3s;
-          &.rotate {
-            transform: rotate(180deg);
-          }
+      user-select: none;
+
+      &:hover, &.active {
+        background: #f3f4f6;
+        border-color: #e5e7eb;
+      }
+
+      .user-avatar {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      }
+
+      .username {
+        margin: 0 8px 0 8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #374151;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .dropdown-arrow {
+        font-size: 12px;
+        color: #9ca3af;
+        transition: transform 0.3s;
+        margin-right: 4px;
+
+        &.is-active {
+          transform: rotate(180deg);
         }
       }
-      
-      .user-dropdown {
+
+      // Dropdown Menu Customization
+      .custom-dropdown-menu {
         position: absolute;
-        right: 0;
         top: calc(100% + 8px);
-        min-width: 120px;
+        right: 0;
+        width: 160px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        border: 1px solid #f3f4f6;
+        padding: 6px;
+        z-index: 1000;
+        transform-origin: top right;
+        animation: dropdown-fade-in 0.2s ease-out;
+
+        .dropdown-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 8px;
+          color: #4b5563;
+          font-size: 14px;
+          transition: all 0.2s;
+
+          .item-icon {
+            font-size: 16px;
+            color: #9ca3af;
+          }
+
+          &:hover {
+            background: #f9fafb;
+            color: #5e7ce0;
+            
+            .item-icon {
+              color: #5e7ce0;
+            }
+          }
+
+          &.danger {
+            margin-top: 4px;
+            border-top: 1px solid #f3f4f6;
+            color: #ef4444;
+
+            .item-icon { color: #ef4444; }
+
+            &:hover {
+              background: #fef2f2;
+              color: #dc2626;
+              .item-icon { color: #dc2626; }
+            }
+          }
+        }
         
-        :deep(.devui-dropdown-menu) {
-          display: block !important;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        // Triangle tip
+        &::before {
+          content: '';
+          position: absolute;
+          top: -6px;
+          right: 20px;
+          width: 12px;
+          height: 12px;
+          background: #fff;
+          border-left: 1px solid #f3f4f6;
+          border-top: 1px solid #f3f4f6;
+          transform: rotate(45deg);
         }
       }
     }
   }
+}
+
+@keyframes dropdown-fade-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (max-width: 768px) {
