@@ -246,9 +246,7 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const addNewItem = () => {
-  console.log('添加漏洞');
-};
+
 
 onMounted(async () => {
   try {
@@ -270,12 +268,6 @@ onMounted(async () => {
         <span class="subtitle">管理和监控系统安全漏洞</span>
       </div>
       <div class="page-actions">
-        <d-button bs-style="primary" class="add-btn" @click="addNewItem">
-          <template #icon>
-            <d-icon name="plus" />
-          </template>
-          添加漏洞
-        </d-button>
       </div>
     </div>
     <div class="main-card">
@@ -290,14 +282,10 @@ onMounted(async () => {
               placeholder="搜索漏洞名称/编号..."
               @keyup.enter="handleSearch"
               class="custom-search"
-            >
-
-              <template #suffix>
-                <d-button bs-style="text" class="search-btn" @click="handleSearch" title="搜索">
-                  <d-icon name="search" />
-                </d-button>
-              </template>
-            </d-input>
+            />
+            <button class="search-btn" @click="handleSearch" title="搜索">
+              <d-icon name="search" />
+            </button>
           </div>
           <d-button bs-style="text" class="icon-btn" title="刷新" @click="loadReports">
             <d-icon name="refresh" />
@@ -463,8 +451,8 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .database-page {
-  padding: 24px 32px;
-  background: #f5f7fa;
+  padding: 32px 40px;
+  background: #f8f9fa; // Lighter, cleaner background
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -472,35 +460,22 @@ onMounted(async () => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid #e5e7eb;
+  align-items: flex-end; // Align bottom
+  margin-bottom: 32px; // More space
+  padding-bottom: 0;
+  border-bottom: none; // Remove border
   .page-title {
     h2 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: 600;
-      color: #111827;
-      letter-spacing: -0.8px;
+      margin: 0 0 8px 0;
+      font-size: 32px; // Larger title
+      font-weight: 700;
+      color: #1a1a1a;
+      letter-spacing: -0.02em;
     }
     .subtitle {
       font-size: 14px;
-      color: #6b7280;
-      margin-top: 8px;
-      display: block;
+      color: #858585;
       font-weight: 400;
-    }
-  }
-  .add-btn {
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border-radius: 8px;
-    padding: 10px 20px;
-    font-weight: 500;
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
     }
   }
 }
@@ -509,163 +484,167 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-radius: 20px; // Larger radius
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03); // Very subtle shadow
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: none; // Remove border
 }
 .toolbar-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 24px 32px; // More padding
+  border-bottom: 1px solid rgba(0,0,0,0.03); // Very subtle separator
   gap: 16px;
-  background: #fafbfc;
+  background: #fff; // Seamless white
   .left-tools {
     display: flex;
     gap: 12px;
     align-items: center;
-    .filter-dropdown {
-      .filter-trigger {
-      font-size: 14px;
-      color: #6b7280;
-        padding: 6px 12px;
-        height: 36px;
-        border-radius: 6px;
-        border: 1px solid #e5e7eb;
-        background: #fff;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        
-        &:hover { 
-          background: #f9fafb;
-          border-color: #d1d5db;
-          color: #374151;
-        }
-        
-        &:active {
-          background: #f3f4f6;
-        }
-      }
-    }
+    // ... filter styles if needed
   }
   .right-tools {
     display: flex;
-    gap: 12px;
+    gap: 16px;
     align-items: center;
     
     .search-box { 
-      width: 360px;
-      position: relative;
+      display: flex;
+      align-items: stretch;
+      height: 44px;
       
       .custom-search { 
         position: relative;
+        width: 320px;
+        height: 44px;
         
-        :deep(.d-input__inner) { 
-          border-radius: 8px; 
-          padding: 10px 48px 10px 40px;
-          border: 1.5px solid #e5e7eb;
-          background: #fff;
-          font-size: 14px;
-          color: #374151;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-          height: 40px;
-          line-height: 20px;
+        // Reset all wrapper styles
+        :deep(.devui-input__wrapper),
+        :deep(.d-input),
+        :deep(.devui-input) {
+          height: 100%;
+          margin: 0;
+          padding: 0;
+        }
+        
+        // Target the actual input element with multiple selectors
+        :deep(.d-input__inner),
+        :deep(.devui-input__inner),
+        :deep(input.d-input__inner),
+        :deep(input) { 
+          border-radius: 8px 0 0 8px !important;
+          padding: 0 20px 0 24px !important;
+          padding-left: 24px !important;
+          border: 1px solid #e0e0e0 !important;
+          border-right: none !important;
+          background: #fafafa;
+          font-size: 15px;
+          color: #333;
+          transition: all 0.25s ease;
+          height: 44px !important;
+          line-height: 44px !important;
+          box-sizing: border-box !important;
           
           &::placeholder {
-            color: #9ca3af;
-            font-size: 14px;
+            color: #aaa;
+            font-weight: 400;
+            padding-left: 0;
           }
           
           &:hover {
-            border-color: #d1d5db;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            background: #fff;
+            border-color: #ccc !important;
           }
           
-          &:focus {
-            border-color: #5e7ce0;
-            box-shadow: 0 0 0 4px rgba(94, 124, 224, 0.12), 0 2px 8px rgba(0, 0, 0, 0.1);
-            outline: none;
+          &:focus,
+          &:focus-visible,
+          &:focus-within {
+            background: #fff;
+            border-color: #e0e0e0 !important;
+            outline: none !important;
+            box-shadow: none !important;
+            --devui-form-control-line-active: #e0e0e0 !important;
+            --devui-brand: #e0e0e0 !important;
           }
         }
         
-        :deep(.d-input__prefix) {
-          left: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          pointer-events: none;
-          
-          .search-icon {
-            font-size: 16px;
-            color: #9ca3af;
-            transition: all 0.2s;
-          }
+        // Also override the wrapper focus styles
+        :deep(.devui-input__wrapper:focus-within),
+        :deep(.d-input:focus-within) {
+          border-color: #e0e0e0 !important;
+          box-shadow: none !important;
+          outline: none !important;
         }
         
-        :deep(.d-input__inner:focus) ~ .d-input__prefix .search-icon {
-          color: #5e7ce0;
-          transform: scale(1.1);
-        }
-        
-        :deep(.d-input__inner:hover) ~ .d-input__prefix .search-icon {
-          color: #6b7280;
-        }
-        
-        :deep(.d-input__suffix) {
-          right: 8px;
-          top: 50%;
-          transform: translateY(-50%);
-        }
-        :deep(.devui-input__wrapper){
-            padding: 0 0 0 8px;
+        :deep(.d-input__prefix),
+        :deep(.d-input__suffix),
+        :deep(.devui-input__prefix),
+        :deep(.devui-input__suffix) {
+          display: none;
         }
       } 
       
       .search-btn { 
-        color: #9ca3af; 
-        padding: 6px;
-        border-radius: 6px;
-        transition: all 0.2s;
+        color: #666;
+        background: #fafafa;
+        padding: 0;
+        border: 1px solid #e0e0e0;
+        border-left: none;
+        border-radius: 0 8px 8px 0;
+        transition: all 0.25s ease;
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 32px;
-        height: 32px;
-        border: none;
-        background: transparent;
+        width: 52px;
+        height: 44px;
+        box-sizing: border-box;
+        cursor: pointer;
+        
+        :deep(.d-icon) {
+          font-size: 20px;
+        }
         
         &:hover { 
           color: #5e7ce0;
-          background: #f0f4ff;
-        }
-        
-        &:active {
-          transform: scale(0.95);
-        }
-        
-        :deep(.d-icon) {
-          font-size: 16px;
+          background: #fff;
         }
       } 
+      
+      &:focus-within {
+        .custom-search :deep(.d-input__inner),
+        .custom-search :deep(input) {
+          border-color: #e0e0e0 !important;
+        }
+        .search-btn {
+          border-color: #e0e0e0;
+        }
+      }
     }
     
     .icon-btn { 
-      color: #9ca3af; 
-      padding: 8px;
-      border-radius: 6px;
-      transition: all 0.2s;
+      color: #6b7280; 
+      padding: 0;
+      border-radius: 10px;
+      transition: all 0.15s ease;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
       
       &:hover { 
-        background: #f3f4f6; 
+        border-color: #d1d5db;
         color: #5e7ce0; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
       } 
+      
+      &:active {
+         transform: scale(0.95);
+      }
     }
   }
 }
@@ -773,32 +752,41 @@ onMounted(async () => {
   font-size: 14px;
   color: #374151;
   background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  table-layout: auto; // 使用自动布局，列宽自适应内容
+  border-radius: 0; // Reset radius
+  box-shadow: none; // Remove shadow
+  table-layout: auto; 
 
-  
   th, td { 
-    padding: 18px 12px; // 增加内边距，让表格看起来更饱满
+    padding: 20px 24px; // Large padding
     text-align: left; 
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid #f3f5f7; // Very light separator
     transition: background-color 0.2s;
     word-wrap: break-word;
     word-break: break-word;
   }
   
   th { 
-    background-color: #f9fafb; 
-    font-weight: 600; 
-    color: #4b5563; 
+    background-color: #fff; // White background
+    font-weight: 700; 
+    color: #1a1a1a; 
     white-space: nowrap; 
-    position: relative;
+    text-transform: uppercase; // Optional: stylistic choice
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #f3f5f7; // Slightly thicker header border
     user-select: none;
-    &:first-child { border-top-left-radius: 8px; } 
-    &:last-child { border-top-right-radius: 8px; }
   }
   
+  // Hover effect
+  .table-row {
+      &:hover {
+          background-color: #fafbfc; // Subtle hover
+          td {
+             border-bottom-color: transparent; // Clean hover
+          }
+      }
+  }
+
   // 优化列宽分配 - 使用类名选择器
   .checkbox-col {
     width: 60px;
