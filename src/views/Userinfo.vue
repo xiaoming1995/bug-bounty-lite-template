@@ -64,13 +64,62 @@ const rankingInfo = ref({
   monthlyPoints: 850
 })
 
-// 荣誉资质数据
-const certifications = ref([
-  { id: 1, name: 'CISP-PTE', issuer: '中国信息安全测评中心', date: '2023.05', type: 'cert', icon: 'medal' },
-  { id: 2, name: 'CISSP', issuer: 'ISC²', date: '2022.11', type: 'cert', icon: 'verified' },
-  { id: 3, name: '2023年度核心白帽子', issuer: '漏洞赏金平台', date: '2023.12', type: 'honor', icon: 'trophy' },
-  { id: 4, name: '漏洞挖掘精英奖', issuer: 'Ssrc安全应急中心', date: '2024.01', type: 'honor', icon: 'star' }
+// 最近提交数据
+const recentSubmissions = ref([
+  { 
+    id: 1, 
+    title: 'SQL注入漏洞 - 用户登录接口', 
+    severity: 'high', 
+    status: 'confirmed', 
+    time: '2天前',
+    points: 500
+  },
+  { 
+    id: 2, 
+    title: 'XSS跨站脚本攻击', 
+    severity: 'medium', 
+    status: 'pending', 
+    time: '5天前',
+    points: 0
+  },
+  { 
+    id: 3, 
+    title: '敏感信息泄露', 
+    severity: 'low', 
+    status: 'fixed', 
+    time: '1周前',
+    points: 200
+  },
+  { 
+    id: 4, 
+    title: 'CSRF跨站请求伪造', 
+    severity: 'medium', 
+    status: 'rejected', 
+    time: '2周前',
+    points: 0
+  }
 ])
+
+// 获取状态文本和样式
+const getStatusInfo = (status: string) => {
+  const statusMap: Record<string, { text: string; color: string; bg: string }> = {
+    'confirmed': { text: '已确认', color: '#059669', bg: '#ecfdf5' },
+    'pending': { text: '审核中', color: '#d97706', bg: '#fffbeb' },
+    'fixed': { text: '已修复', color: '#0284c7', bg: '#f0f9ff' },
+    'rejected': { text: '已拒绝', color: '#dc2626', bg: '#fef2f2' }
+  }
+  return statusMap[status] || { text: '未知', color: '#6b7280', bg: '#f3f4f6' }
+}
+
+const getSeverityInfo = (severity: string) => {
+  const severityMap: Record<string, { text: string; color: string }> = {
+    'critical': { text: '严重', color: '#7c3aed' },
+    'high': { text: '高危', color: '#dc2626' },
+    'medium': { text: '中危', color: '#d97706' },
+    'low': { text: '低危', color: '#059669' }
+  }
+  return severityMap[severity] || { text: '未知', color: '#6b7280' }
+}
 
 // 方法
 const handleEdit = () => {
@@ -251,23 +300,49 @@ const submitPasswordChange = async () => {
             </div>
           </div>
 
-          <!-- 荣誉资质 -->
-          <div class="cert-section">
-            <h3>
-              <d-icon name="medal" />
-              荣誉资质
-            </h3>
-            <div class="cert-grid">
-              <div v-for="cert in certifications" :key="cert.id" class="cert-item" :class="cert.type">
-                <div class="cert-icon">
-                  <d-icon :name="cert.icon" />
+          <!-- 最近提交 -->
+          <div class="submissions-section">
+            <div class="section-header">
+              <h3>
+                <d-icon name="list-check" />
+                最近提交
+              </h3>
+              <router-link to="/database" class="view-all-link">
+                查看全部
+                <d-icon name="arrow-right-s" />
+              </router-link>
+            </div>
+            <div class="submissions-list">
+              <div 
+                v-for="item in recentSubmissions" 
+                :key="item.id" 
+                class="submission-item"
+                :class="item.status"
+              >
+                <div class="submission-main">
+                  <div class="submission-title">{{ item.title }}</div>
+                  <div class="submission-meta">
+                    <span 
+                      class="severity-tag" 
+                      :style="{ color: getSeverityInfo(item.severity).color }"
+                    >
+                      {{ getSeverityInfo(item.severity).text }}
+                    </span>
+                    <span class="submission-time">{{ item.time }}</span>
+                  </div>
                 </div>
-                <div class="cert-info">
-                  <div class="cert-name">{{ cert.name }}</div>
-                  <div class="cert-issuer">{{ cert.issuer }} · {{ cert.date }}</div>
+                <div class="submission-status">
+                  <span 
+                    class="status-badge"
+                    :style="{ 
+                      color: getStatusInfo(item.status).color,
+                      background: getStatusInfo(item.status).bg
+                    }"
+                  >
+                    {{ getStatusInfo(item.status).text }}
+                  </span>
+                  <span v-if="item.points > 0" class="points-earned">+{{ item.points }}</span>
                 </div>
-                <div v-if="cert.type === 'honor'" class="cert-tag">荣誉</div>
-                <div v-else class="cert-tag">认证</div>
               </div>
             </div>
           </div>
@@ -364,23 +439,22 @@ const submitPasswordChange = async () => {
 <style scoped lang="scss">
 .userinfo-page {
   min-height: calc(100vh - 64px);
-  height: calc(100vh - 64px);
   background: #f8fafc;
-  padding: 24px;
+  padding: var(--spacing-page, 24px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .page-content {
   max-width: 1200px;
   width: 100%;
-  height: 100%;
   display: grid;
   grid-template-columns: 1fr 280px;
   gap: 24px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .user-card {
@@ -390,7 +464,6 @@ const submitPasswordChange = async () => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  height: 100%;
   box-sizing: border-box;
 }
 
@@ -542,118 +615,143 @@ const submitPasswordChange = async () => {
   }
 }
 
-// 荣誉资质样式
-.cert-section {
+// 最近提交样式
+.submissions-section {
   margin-top: 32px;
   padding-top: 24px;
   border-top: 1px solid #f1f5f9;
 
-  h3 {
-    margin: 0 0 16px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #1e293b;
+  .section-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    margin-bottom: 16px;
 
-    .devui-icon {
-      color: #f59e0b; // Gold for medal icon
-    }
-  }
-}
-
-.cert-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.cert-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid transparent;
-  transition: all 0.3s;
-  position: relative;
-  overflow: hidden;
-
-  // Certification Style (Blue)
-  &.cert {
-    background: #f0f9ff;
-    border-color: #bae6fd;
-
-    .cert-icon {
-      background: #e0f2fe;
-      color: #0ea5e9;
-    }
-
-    .cert-tag {
-      background: #0ea5e9;
-    }
-    
-    &:hover {
-      background: #e0f2fe;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.1);
-    }
-  }
-
-  // Honor Style (Gold)
-  &.honor {
-    background: #fffbeb;
-    border-color: #fde68a;
-
-    .cert-icon {
-      background: #fef3c7;
-      color: #d97706;
-    }
-
-    .cert-tag {
-      background: #d97706;
-    }
-
-    &:hover {
-      background: #fef3c7;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.1);
-    }
-  }
-
-  .cert-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-  }
-
-  .cert-info {
-    flex: 1;
-
-    .cert-name {
-      font-size: 14px;
+    h3 {
+      margin: 0;
+      font-size: 15px;
       font-weight: 600;
       color: #1e293b;
-      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .devui-icon {
+        color: #5e7ce0;
+      }
     }
 
-    .cert-issuer {
-      font-size: 12px;
-      color: #64748b;
+    .view-all-link {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      color: #5e7ce0;
+      text-decoration: none;
+      transition: all 0.2s;
+
+      &:hover {
+        color: #4c6bcf;
+        gap: 6px;
+      }
+
+      .devui-icon {
+        font-size: 14px;
+      }
+    }
+  }
+}
+
+.submissions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.submission-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border-left: 3px solid transparent;
+  transition: all 0.2s;
+  cursor: pointer;
+
+  &:hover {
+    background: #f1f5f9;
+    transform: translateX(4px);
+  }
+
+  // 状态边框颜色
+  &.confirmed {
+    border-left-color: #059669;
+  }
+  
+  &.pending {
+    border-left-color: #d97706;
+  }
+  
+  &.fixed {
+    border-left-color: #0284c7;
+  }
+  
+  &.rejected {
+    border-left-color: #dc2626;
+  }
+
+  .submission-main {
+    flex: 1;
+    min-width: 0;
+
+    .submission-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #1e293b;
+      margin-bottom: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .submission-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .severity-tag {
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .submission-time {
+        font-size: 12px;
+        color: #94a3b8;
+      }
     }
   }
 
-  .cert-tag {
-    font-size: 10px;
-    color: #fff;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-weight: 500;
+  .submission-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+
+    .status-badge {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .points-earned {
+      font-size: 13px;
+      font-weight: 700;
+      color: #059669;
+    }
   }
 }
 
@@ -791,16 +889,41 @@ const submitPasswordChange = async () => {
   }
 }
 
+// 大平板设备 (900px - 1024px)
+@media (max-width: 1024px) and (min-width: 901px) {
+  .page-content {
+    gap: 20px;
+  }
+  
+  .user-card {
+    padding: 20px;
+  }
+  
+  .info-grid {
+    gap: 16px;
+  }
+}
+
+// 平板设备 (768px - 900px)
 @media (max-width: 900px) {
+  .userinfo-page {
+    padding: 20px 16px;
+  }
+  
   .page-content {
     grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .main-section {
+    order: 1;
   }
 
   .side-section {
-    order: -1;
+    order: 0;
     flex-direction: row;
     flex-wrap: wrap;
-    height: auto;
+    gap: 16px;
   }
 
   .stats-card,
@@ -811,37 +934,71 @@ const submitPasswordChange = async () => {
   }
 }
 
+// 手机设备 (640px - 768px)
+@media (max-width: 768px) and (min-width: 641px) {
+  .userinfo-page {
+    padding: 20px 16px;
+  }
+  
+  .user-header {
+    gap: 16px;
+    
+    .name-row h1 {
+      font-size: 20px;
+    }
+  }
+  
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  
+  .submissions-section {
+    margin-top: 24px;
+    padding-top: 16px;
+  }
+  
+  .submission-item {
+    padding: 14px;
+  }
+}
+
 @media (max-width: 640px) {
   .userinfo-page {
-    padding: 16px;
-    height: auto;
-    min-height: calc(100vh - 64px);
+    padding: 12px;
   }
 
   .page-content {
-    height: auto;
+    gap: 16px;
   }
 
   .user-card {
-    height: auto;
+    padding: 16px;
   }
 
   .user-header {
     flex-direction: column;
     text-align: center;
+    gap: 16px;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
   }
 
   .header-actions {
     width: 100%;
     justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .info-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .side-section {
     flex-direction: column;
+    gap: 12px;
   }
 
   .stats-card,
@@ -860,11 +1017,36 @@ const submitPasswordChange = async () => {
     flex-direction: column;
     text-align: center;
     gap: 4px;
+    padding: 10px;
   }
 
-  .cert-grid {
-    grid-template-columns: 1fr;
+  .submissions-section {
+    margin-top: 20px;
+    padding-top: 16px;
+    
+    .section-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+  }
+
+  .submission-item {
+    flex-direction: column;
+    align-items: flex-start;
     gap: 12px;
+    padding: 14px;
+    
+    .submission-status {
+      flex-direction: row;
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+  
+  .bio-section {
+    padding: 12px;
+    margin-bottom: 16px;
   }
 }
 

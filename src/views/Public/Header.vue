@@ -5,6 +5,15 @@ import { useUserStore } from '@/stores/user'
 import { logout } from '@/api/auth'
 
 const activeKey = ref('home')
+const mobileMenuVisible = ref(false)
+
+const toggleMobileMenu = () => {
+  mobileMenuVisible.value = !mobileMenuVisible.value
+}
+
+const closeMobileMenu = () => {
+  mobileMenuVisible.value = false
+}
 const userDropdownVisible = ref(false)
 const router = useRouter()
 const userStore = useUserStore()
@@ -105,6 +114,13 @@ const handleSubmitVulnerability = () => {
 
 <template>
   <div class="header-container">
+    <!-- 移动端汉堡菜单按钮 -->
+    <button class="mobile-menu-btn" @click="toggleMobileMenu" :class="{ active: mobileMenuVisible }">
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+    </button>
+    
     <!-- 左侧LOGO和标题 -->
     <div class="header-left">
       <d-avatar 
@@ -117,8 +133,8 @@ const handleSubmitVulnerability = () => {
       <h1 class="title">漏洞情报中心</h1>
     </div>
 
-    <!-- 中间导航菜单 -->
-    <div class="header-center">
+    <!-- 中间导航菜单 (桌面端) -->
+    <div class="header-center desktop-nav">
       <d-menu 
         mode="horizontal" 
         :default-active="activeKey"
@@ -147,7 +163,7 @@ const handleSubmitVulnerability = () => {
       </d-menu>
     </div>
 
-    <!-- 右侧功能区 - 重点修复区域 -->
+    <!-- 右侧功能区 -->
     <div class="header-right">
       <button
         class="submit-vuln-btn"
@@ -179,6 +195,39 @@ const handleSubmitVulnerability = () => {
           </div>
         </div>
       </div>
+    </div>
+    
+    <!-- 移动端抽屉菜单 -->
+    <div class="mobile-menu-overlay" v-show="mobileMenuVisible" @click="closeMobileMenu"></div>
+    <div class="mobile-menu-drawer" :class="{ visible: mobileMenuVisible }">
+      <div class="mobile-menu-header">
+        <h2>导航菜单</h2>
+        <button class="close-btn" @click="closeMobileMenu">
+          <d-icon name="close" />
+        </button>
+      </div>
+      <nav class="mobile-nav-list">
+        <router-link to="/" class="mobile-nav-item" @click="closeMobileMenu">
+          <d-icon name="home" />
+          <span>首页</span>
+        </router-link>
+        <router-link to="/database" class="mobile-nav-item" @click="closeMobileMenu">
+          <d-icon name="database" />
+          <span>漏洞库</span>
+        </router-link>
+        <router-link to="/cnnvd" class="mobile-nav-item" @click="closeMobileMenu">
+          <d-icon name="notice" />
+          <span>CNNVD动态</span>
+        </router-link>
+        <router-link to="/analysis" class="mobile-nav-item" @click="closeMobileMenu">
+          <d-icon name="analysis" />
+          <span>漏洞报告</span>
+        </router-link>
+        <router-link to="/ranking" class="mobile-nav-item" @click="closeMobileMenu">
+          <d-icon name="trophy" />
+          <span>排行榜</span>
+        </router-link>
+      </nav>
     </div>
   </div>
 </template>
@@ -396,37 +445,274 @@ const handleSubmitVulnerability = () => {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@media (max-width: 768px) {
-  .header-container {
-    padding: 0 16px;
+// 移动端汉堡菜单按钮
+.mobile-menu-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  gap: 5px;
+  border-radius: 8px;
+  transition: background 0.2s;
+  
+  &:hover {
+    background: #f3f4f6;
+  }
+  
+  .hamburger-line {
+    width: 20px;
+    height: 2px;
+    background: #374151;
+    border-radius: 1px;
+    transition: all 0.3s;
+  }
+  
+  &.active {
+    .hamburger-line:nth-child(1) {
+      transform: rotate(45deg) translate(5px, 5px);
+    }
+    .hamburger-line:nth-child(2) {
+      opacity: 0;
+    }
+    .hamburger-line:nth-child(3) {
+      transform: rotate(-45deg) translate(5px, -5px);
+    }
+  }
+}
+
+// 移动端菜单遮罩
+.mobile-menu-overlay {
+  display: none;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  animation: fadeIn 0.2s ease;
+}
+
+// 移动端抽屉菜单
+.mobile-menu-drawer {
+  display: none;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  width: 280px;
+  height: calc(100vh - 64px);
+  background: #fff;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+  z-index: 999;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  
+  &.visible {
+    transform: translateX(0);
+  }
+  
+  .mobile-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1f5f9;
     
-    .title, .username { 
-      display: none; 
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e293b;
     }
     
-    .header-right {
-      gap: 12px;
+    .close-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      border-radius: 6px;
+      color: #64748b;
       
-      .submit-vuln-btn {
-        padding: 10px 16px;
-        font-size: 14px;
+      &:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+      }
+    }
+  }
+  
+  .mobile-nav-list {
+    padding: 12px;
+    
+    .mobile-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      color: #475569;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+      transition: all 0.2s;
+      
+      &:hover {
+        background: #f8fafc;
+        color: #5e7ce0;
+      }
+      
+      &.router-link-active {
+        background: #eff6ff;
+        color: #5e7ce0;
+      }
+      
+      .devui-icon {
+        font-size: 18px;
       }
     }
   }
 }
 
-@media (max-width: 480px) {
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+// 平板设备 (768px - 1024px)
+@media (max-width: 1024px) and (min-width: 769px) {
   .header-container {
-    padding: 0 12px;
+    padding: 0 20px;
     
-    .header-right {
-      gap: 8px;
+    .header-left {
+      min-width: 180px;
       
-      .submit-vuln-btn {
-        padding: 10px;
-        min-width: 44px;
+      .title {
+        font-size: 16px;
       }
     }
+    
+    .header-center {
+      :deep(.devui-menu-item) {
+        padding: 0 12px;
+        font-size: 13px;
+      }
+    }
+    
+    .header-right {
+      min-width: 180px;
+      gap: 12px;
+      
+      .submit-vuln-btn {
+        padding: 8px 14px;
+        font-size: 13px;
+      }
+    }
+  }
+}
+
+// 移动端 (小于 768px)
+@media (max-width: 768px) {
+  .header-container {
+    padding: 0 12px;
+    justify-content: space-between;
+    
+    .mobile-menu-btn {
+      display: flex;
+      order: -1;
+    }
+    
+    .header-left {
+      min-width: auto;
+      flex: 1;
+      justify-content: center;
+      
+      .title { 
+        display: none; 
+      }
+      
+      .logo {
+        margin-right: 0;
+      }
+    }
+    
+    .desktop-nav {
+      display: none;
+    }
+    
+    .mobile-menu-overlay,
+    .mobile-menu-drawer {
+      display: block;
+    }
+    
+    .header-right {
+      min-width: auto;
+      gap: 8px;
+      
+      .username { 
+        display: none; 
+      }
+      
+      .submit-vuln-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+      
+      .user-profile-trigger {
+        padding: 4px;
+        
+        .dropdown-arrow {
+          display: none;
+        }
+      }
+    }
+  }
+}
+
+// 小屏手机 (小于 480px)
+@media (max-width: 480px) {
+  .header-container {
+    padding: 0 8px;
+    height: 56px;
+    
+    .mobile-menu-btn {
+      width: 36px;
+      height: 36px;
+    }
+    
+    .header-right {
+      gap: 6px;
+      
+      .submit-vuln-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      
+      .user-profile-trigger {
+        .user-avatar {
+          width: 28px !important;
+          height: 28px !important;
+        }
+      }
+    }
+  }
+  
+  .mobile-menu-drawer {
+    width: 100%;
+    top: 56px;
+    height: calc(100vh - 56px);
+  }
+  
+  .mobile-menu-overlay {
+    top: 56px;
   }
 }
 </style>

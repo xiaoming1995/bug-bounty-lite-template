@@ -58,16 +58,45 @@ button:focus-visible {
   padding: 2em;
 }
 
+/* 响应式 CSS 变量 */
+:root {
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  
+  /* 响应式间距 */
+  --spacing-page: 24px;
+  --spacing-card: 16px;
+  --spacing-element: 12px;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --spacing-page: 16px;
+    --spacing-card: 12px;
+    --spacing-element: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --spacing-page: 12px;
+    --spacing-card: 10px;
+    --spacing-element: 6px;
+  }
+}
+
 #app {
-  /* --content-padding: 2rem; */
-  max-width: min(1280px, 90vw); /* 添加响应式限制 */
+  /* 移除宽度限制，让各页面自己控制 */
+  max-width: 100%;
   margin: 0 auto;
-  padding: var(--content-padding); 
+  padding: 0;
   width: 100%;
   
   /* 现代布局方式 */
-  display: grid;
-  grid-template-rows: auto 1fr auto; /* 经典头-内容-脚布局 */
+  display: flex;
+  flex-direction: column;
   min-height: 100vh; /* 确保撑满视口高度 */
   text-align: initial; /* 重置文本对齐（按需设置） */
   /* 平滑滚动 */

@@ -451,7 +451,7 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .database-page {
-  padding: 32px 40px;
+  padding: var(--spacing-page, 32px) clamp(16px, 4vw, 40px);
   background: #f8f9fa; // Lighter, cleaner background
   min-height: 100vh;
   display: flex;
@@ -515,7 +515,7 @@ onMounted(async () => {
       
       .custom-search { 
         position: relative;
-        width: 320px;
+        width: clamp(200px, 30vw, 320px);
         height: 44px;
         
         // Reset all wrapper styles

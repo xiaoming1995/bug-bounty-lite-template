@@ -368,9 +368,9 @@ const submitPasswordChange = async () => {
 
 <style scoped lang="scss">
 .settings-container {
-  padding: 24px;
+  padding: var(--spacing-page, 24px);
   background: #f5f7fa;
-  height: calc(100vh - 64px);
+  min-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
 }
@@ -611,13 +611,50 @@ const submitPasswordChange = async () => {
   }
 }
 
-// 响应式设计
+// 平板设备响应式 (768px - 1024px)
+@media (max-width: 1024px) and (min-width: 769px) {
+  .settings-container {
+    padding: 20px;
+  }
+  
+  .page-header {
+    margin-bottom: 20px;
+    
+    .page-title {
+      font-size: 22px;
+    }
+  }
+  
+  .quick-actions {
+    gap: 10px;
+    
+    .quick-action-btn {
+      height: 44px;
+      font-size: 13px;
+    }
+  }
+}
+
+// 手机响应式 (小于 768px)
 @media (max-width: 768px) {
   .settings-container {
     padding: 16px;
     height: auto !important;
     display: block !important;
     overflow-y: visible !important;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+    
+    .page-title {
+      font-size: 20px;
+      gap: 8px;
+    }
+    
+    .page-desc {
+      font-size: 13px;
+    }
   }
 
   .quick-actions {
@@ -639,6 +676,63 @@ const submitPasswordChange = async () => {
     &:last-child {
       margin-bottom: 0;
     }
+  }
+  
+  .preference-item,
+  .security-item {
+    padding: 12px 0;
+    
+    .preference-title,
+    .security-title {
+      font-size: 13px;
+    }
+    
+    .preference-desc,
+    .security-desc {
+      font-size: 11px;
+    }
+  }
+}
+
+// 小屏手机响应式 (小于 480px)
+@media (max-width: 480px) {
+  .settings-container {
+    padding: 12px;
+  }
+  
+  .page-header {
+    margin-bottom: 12px;
+    
+    .page-title {
+      font-size: 18px;
+    }
+  }
+  
+  .card-header h3 {
+    font-size: 14px;
+  }
+  
+  .preferences-card,
+  .security-card,
+  .quick-actions-card,
+  .help-card,
+  .privacy-card {
+    :deep(.devui-card__body) {
+      padding: 12px;
+    }
+  }
+  
+  .privacy-item {
+    padding: 10px 0;
+    
+    span {
+      font-size: 13px;
+    }
+  }
+  
+  .help-link {
+    padding: 10px;
+    font-size: 13px;
   }
 }
 </style>
