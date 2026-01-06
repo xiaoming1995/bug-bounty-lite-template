@@ -1,36 +1,32 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Header from './Public/Header.vue'
 
 // 统计数据
 const stats = ref([
   {
-    value: 336969,
+    value: 156,
+    title: '严重漏洞',
+    iconColor: '#7c3aed', // 紫色 - 最严重
+    trend: { value: 12, direction: 'up', color: '#ef4444', percentage: '8.2%' }
+  },
+  {
+    value: 896,
     title: '高危漏洞',
-    useShape: true, // Use CSS shape instead of icon
-    iconColor: '#ef4444', // Red 500
-    trend: { value: 1399, direction: 'down', color: '#ef4444', percentage: '12.3%' }
+    iconColor: '#ef4444', // 红色
+    trend: { value: 23, direction: 'down', color: '#10b981', percentage: '12.5%' }
   },
   {
-    value: 25565566,
+    value: 1284,
     title: '中危漏洞',
-    useShape: true,
-    iconColor: '#f59e0b', // Amber 500
-    trend: { value: 2669, direction: 'up', color: '#10b981', percentage: '8.2%' }
+    iconColor: '#f59e0b', // 橙色
+    trend: { value: 45, direction: 'up', color: '#10b981', percentage: '5.3%' }
   },
   {
-    value: 18724321,
+    value: 2156,
     title: '低危漏洞',
-    useShape: true,
-    iconColor: '#3b82f6', // Blue 500
-    trend: { value: 1234, direction: 'down', color: '#ef4444', percentage: '5.6%' }
-  },
-  {
-    value: 9842,
-    title: '今日警告',
-    useShape: true,
-    iconColor: '#8b5cf6', // Violet 500
-    trend: { value: 42, direction: 'up', color: '#10b981', percentage: '3.1%' }
+    iconColor: '#3b82f6', // 蓝色
+    trend: { value: 18, direction: 'down', color: '#ef4444', percentage: '3.1%' }
   }
 ])
 
@@ -93,6 +89,99 @@ const viewMore = (style : string) => {
     console.log('跳转更多',style)
 }
 
+// 漏洞等级分布数据
+const totalVulns = computed(() => stats.value.reduce((sum, item) => sum + item.value, 0))
+
+const distributionData = computed(() => {
+  const total = totalVulns.value || 1
+  return stats.value.map((item, index) => {
+    const colors = ['#7c3aed', '#ef4444', '#f59e0b', '#3b82f6'] // 紫、红、橙、蓝
+    const percentage = (item.value / total) * 100
+    return {
+      label: item.title,
+      value: item.value,
+      percentage: percentage.toFixed(1),
+      color: colors[index]
+    }
+  })
+})
+
+// 计算环形图的SVG路径
+const getDonutSegments = computed(() => {
+  const total = totalVulns.value || 1
+  let cumulativePercent = 0
+  const radius = 80
+  const cx = 100
+  const cy = 100
+  
+  return distributionData.value.map(item => {
+    const percent = (item.value / total) * 100
+    const startAngle = cumulativePercent * 3.6 - 90 // 从顶部开始
+    cumulativePercent += percent
+    const endAngle = cumulativePercent * 3.6 - 90
+    
+    const startRad = (startAngle * Math.PI) / 180
+    const endRad = (endAngle * Math.PI) / 180
+    
+    const x1 = cx + radius * Math.cos(startRad)
+    const y1 = cy + radius * Math.sin(startRad)
+    const x2 = cx + radius * Math.cos(endRad)
+    const y2 = cy + radius * Math.sin(endRad)
+    
+    const largeArcFlag = percent > 50 ? 1 : 0
+    
+    return {
+      ...item,
+      path: `M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`
+    }
+  })
+})
+
+// 趋势图周期切换
+type TrendPeriod = 'day' | 'month' | 'year'
+const trendPeriod = ref<TrendPeriod>('month')
+
+// 生成当前月全部日期
+const generateCurrentMonthDays = () => {
+  const days = []
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = today.getMonth()
+  // 获取当前月的天数
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push({
+      label: `${i}日`,
+      value: Math.floor(Math.random() * 30) + 5 // 模拟数据
+    })
+  }
+  return days
+}
+
+// 模拟趋势数据
+const trendDataRaw = ref({
+  day: generateCurrentMonthDays(),
+  month: [
+    { label: '1月', value: 85 }, { label: '2月', value: 92 }, { label: '3月', value: 78 },
+    { label: '4月', value: 125 }, { label: '5月', value: 145 }, { label: '6月', value: 168 },
+    { label: '7月', value: 210 }, { label: '8月', value: 185 }, { label: '9月', value: 156 },
+    { label: '10月', value: 178 }, { label: '11月', value: 198 }, { label: '12月', value: 225 }
+  ],
+  year: [
+    { label: '2021', value: 856 }, { label: '2022', value: 1245 },
+    { label: '2023', value: 1689 }, { label: '2024', value: 2156 }, { label: '2025', value: 2892 }
+  ]
+})
+
+const trendData = computed(() => trendDataRaw.value[trendPeriod.value])
+const trendMax = computed(() => Math.max(...trendData.value.map((d: { value: number }) => d.value)))
+
+// 切换周期
+const setPeriod = (period: TrendPeriod) => {
+  trendPeriod.value = period
+}
+
 onMounted(fetchVulnerabilities)
 </script>
 
@@ -100,6 +189,7 @@ onMounted(fetchVulnerabilities)
   <Header />
   
   <div class="security-dashboard">
+    <div class="dashboard-content">
     <!-- 统计卡片 -->
     <div class="stats-row">
       <div v-for="(stat, index) in stats" :key="index" class="stat-item">
@@ -118,15 +208,18 @@ onMounted(fetchVulnerabilities)
           
           <!-- 真实内容 -->
           <template v-else>
+            <!-- 左侧颜色条 -->
+            <div class="level-indicator" :style="{ backgroundColor: stat.iconColor }"></div>
+            
             <div class="stat-header">
-              <div class="icon-wrapper" :style="{ background: `${stat.iconColor}15`, color: stat.iconColor }">
-                <div class="icon-shape"></div>
+              <div class="level-icon" :style="{ backgroundColor: stat.iconColor + '15', color: stat.iconColor }">
+                <span class="icon-dot" :style="{ backgroundColor: stat.iconColor }"></span>
               </div>
               <span class="stat-title">{{ stat.title }}</span>
             </div>
             
             <div class="stat-body">
-              <div class="stat-value">
+              <div class="stat-value" :style="{ color: stat.iconColor }">
                 <d-statistic 
                   :value="stat.value" 
                   group-separator="," 
@@ -134,13 +227,114 @@ onMounted(fetchVulnerabilities)
                 />
               </div>
               <div class="trend-info">
-                <span class="label">较昨日</span>
                 <span class="trend-value" :class="stat.trend.direction">
-                  {{ stat.trend.direction === 'up' ? '↑' : '↓' }} {{ stat.trend.percentage }}
+                  {{ stat.trend.direction === 'up' ? '↑' : '↓' }} {{ stat.trend.percentage }} 较上月
                 </span>
               </div>
             </div>
           </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- 图表区域 -->
+    <div class="charts-section">
+      <!-- 漏洞等级分布 -->
+      <div class="chart-card distribution-card">
+        <div class="card-header">
+          <span class="title">漏洞严重等级分布</span>
+          <span class="more-link" @click="viewMore('distribution')">查看详情</span>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrapper">
+            <!-- 环形图 -->
+            <div class="donut-chart">
+              <svg viewBox="0 0 200 200">
+                <path
+                  v-for="(segment, index) in getDonutSegments"
+                  :key="index"
+                  :d="segment.path"
+                  :fill="segment.color"
+                  class="donut-segment"
+                />
+                <!-- 中心白色圆形 -->
+                <circle cx="100" cy="100" r="50" fill="white" />
+              </svg>
+              <div class="chart-center-text">
+                <span class="center-value">{{ totalVulns.toLocaleString() }}</span>
+                <span class="center-label">漏洞总数</span>
+              </div>
+            </div>
+            
+            <!-- 图例 -->
+            <div class="chart-legend">
+              <div 
+                v-for="(item, index) in distributionData" 
+                :key="index" 
+                class="legend-item"
+              >
+                <span class="legend-dot" :style="{ backgroundColor: item.color }"></span>
+                <span class="legend-label">{{ item.label }}</span>
+                <span class="legend-value">{{ item.value.toLocaleString() }}</span>
+                <span class="legend-percent">{{ item.percentage }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 月度漏洞发现趋势 -->
+      <div class="chart-card trend-card">
+        <div class="card-header">
+          <span class="title">月度漏洞发现趋势</span>
+          <div class="period-toggle">
+            <button 
+              :class="{ active: trendPeriod === 'day' }" 
+              @click="setPeriod('day')"
+            >日</button>
+            <button 
+              :class="{ active: trendPeriod === 'month' }" 
+              @click="setPeriod('month')"
+            >月</button>
+            <button 
+              :class="{ active: trendPeriod === 'year' }" 
+              @click="setPeriod('year')"
+            >年</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="trend-chart-wrapper">
+            <!-- Y轴标签 -->
+            <div class="y-axis">
+              <span>{{ trendMax }}</span>
+              <span>{{ Math.round(trendMax / 2) }}</span>
+              <span>0</span>
+            </div>
+            
+            <!-- 柱状图 -->
+            <div class="bar-chart">
+              <div 
+                v-for="(item, index) in trendData" 
+                :key="index" 
+                class="bar-item"
+              >
+                <div class="bar-wrapper">
+                  <div 
+                    class="bar" 
+                    :style="{ height: (item.value / trendMax * 100) + '%' }"
+                  >
+                    <span class="bar-value">{{ item.value }}</span>
+                  </div>
+                </div>
+                <span class="bar-label">{{ item.label }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 底部说明 -->
+          <div class="trend-footer">
+            <span class="trend-desc">漏洞数量</span>
+          </div>
         </div>
       </div>
     </div>
@@ -270,18 +464,28 @@ onMounted(fetchVulnerabilities)
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 .security-dashboard {
   padding: 24px 32px;
-  background-color: #ffffff;
-  height: calc(100vh - 64px);
+  background-color: #f8fafc;
+  min-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
+  align-items: center;
   overflow: hidden;
+}
+
+.dashboard-content {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
+  height: 100%;
 }
 
 // 骨架屏动画
@@ -319,80 +523,473 @@ onMounted(fetchVulnerabilities)
 .stat-card {
   background: white;
   border-radius: 16px;
-  padding: 20px;
-  border: 1px solid #f1f5f9;
-  transition: all 0.3s;
+  padding: 22px 22px 22px 28px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-    border-color: #e2e8f0;
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+    border-color: #cbd5e1;
+  }
+  
+  // 左侧等级颜色条
+  .level-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 14px 0 0 14px;
+  }
+  
+  // 等级图标
+  .level-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    
+    .icon-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
   }
   
   .stat-header {
     display: flex;
     align-items: center;
     margin-bottom: 16px;
-    
-    .icon-wrapper {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-right: 12px;
-      
-      .icon-shape {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: currentColor;
-      }
-    }
+    position: relative;
+    z-index: 1;
     
     .stat-title {
       font-size: 14px;
       color: #64748b;
       font-weight: 500;
-      flex: 1;
     }
   }
   
   .stat-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    position: relative;
+    z-index: 1;
+    
     .stat-value {
       :deep(.devui-statistic-content-value) {
-        font-size: 28px;
+        font-size: 32px;
         font-weight: 700;
-        color: #0f172a;
-        font-family: 'Inter', sans-serif;
+        color: inherit !important;
+        font-family: 'Inter', -apple-system, sans-serif;
+        letter-spacing: -0.02em;
       }
     }
     
     .trend-info {
-      margin-top: 8px;
+      margin-top: 10px;
       display: flex;
       align-items: center;
-      font-size: 13px;
-      
-      .label {
-        color: #94a3b8;
-        margin-right: 8px;
-      }
+      font-size: 12px;
       
       .trend-value {
         display: flex;
         align-items: center;
-        gap: 2px;
-        font-weight: 600;
+        gap: 4px;
+        font-weight: 500;
+        color: #94a3b8;
         
         &.up { color: #10b981; }
         &.down { color: #ef4444; }
       }
+    }
+  }
+}
+
+// 图表区域 - 两列布局
+.charts-section {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+// 图表卡片基础样式
+.chart-card {
+  flex: 1;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+    border-color: #cbd5e1;
+  }
+  
+  .card-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    
+    .more-link {
+      font-size: 14px;
+      color: #3b82f6;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s;
+      
+      &:hover {
+        color: #2563eb;
+        text-decoration: underline;
+      }
+    }
+  }
+  
+  .card-body {
+    padding: 24px;
+  }
+}
+
+// 漏洞等级分布卡片
+.distribution-card {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+  transition: all 0.3s;
+  
+  &:hover {
+    box-shadow: 0 10px 30px -5px rgba(59, 130, 246, 0.06);
+    border-color: #e2e8f0;
+  }
+  
+  .card-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    
+    .more-link {
+      font-size: 14px;
+      color: #3b82f6;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s;
+      
+      &:hover {
+        color: #2563eb;
+        text-decoration: underline;
+      }
+    }
+  }
+  
+  .card-body {
+    padding: 24px;
+  }
+  
+  .chart-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 60px;
+  }
+  
+  .donut-chart {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    flex-shrink: 0;
+    
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+    
+    .donut-segment {
+      transition: all 0.3s ease;
+      cursor: pointer;
+      
+      &:hover {
+        opacity: 0.8;
+        transform: scale(1.02);
+        transform-origin: center;
+      }
+    }
+    
+    .chart-center-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      
+      .center-value {
+        display: block;
+        font-size: 24px;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.2;
+      }
+      
+      .center-label {
+        display: block;
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 2px;
+      }
+    }
+  }
+  
+  .chart-legend {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 40px;
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 180px;
+      
+      .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+      
+      .legend-label {
+        font-size: 14px;
+        color: #64748b;
+        min-width: 60px;
+      }
+      
+      .legend-value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1e293b;
+        min-width: 60px;
+      }
+      
+      .legend-percent {
+        font-size: 13px;
+        color: #94a3b8;
+        background: #f1f5f9;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+    }
+  }
+}
+
+// 趋势图卡片
+.trend-card {
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    .period-toggle {
+      display: flex;
+      gap: 4px;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 8px;
+      
+      button {
+        padding: 6px 16px;
+        border: none;
+        background: transparent;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 500;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        
+        &:hover {
+          color: #3b82f6;
+        }
+        
+        &.active {
+          background: #3b82f6;
+          color: white;
+          box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+        }
+      }
+    }
+  }
+  
+  .trend-chart-wrapper {
+    display: flex;
+    gap: 16px;
+    height: 200px;
+  }
+  
+  .y-axis {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0 8px 24px 0;
+    
+    span {
+      font-size: 11px;
+      color: #94a3b8;
+      text-align: right;
+      min-width: 36px;
+    }
+  }
+  
+  .bar-chart {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid #e2e8f0;
+    position: relative;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-width: 0;
+    
+    // 自定义滚动条
+    &::-webkit-scrollbar {
+      height: 4px;
+    }
+    &::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 2px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 2px;
+    }
+    
+    // 网格线
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      border-top: 1px dashed #e2e8f0;
+      pointer-events: none;
+    }
+    
+    &::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      border-top: 1px dashed #e2e8f0;
+      pointer-events: none;
+    }
+  }
+  
+  .bar-item {
+    flex: 1 0 28px;
+    min-width: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    
+    .bar-wrapper {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    
+    .bar {
+      width: 80%;
+      max-width: 24px;
+      min-width: 6px;
+      background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
+      border-radius: 2px 2px 0 0;
+      position: relative;
+      transition: all 0.3s ease;
+      min-height: 4px;
+      
+      &:hover {
+        transform: scaleX(1.2);
+        background: linear-gradient(180deg, #2563eb 0%, #3b82f6 100%);
+      }
+      
+      .bar-value {
+        position: absolute;
+        top: -18px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 10px;
+        font-weight: 600;
+        color: #3b82f6;
+        white-space: nowrap;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      
+      &:hover .bar-value {
+        opacity: 1;
+      }
+    }
+    
+    .bar-label {
+      font-size: 9px;
+      color: #94a3b8;
+      margin-top: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      text-align: center;
+    }
+    
+    // 当项目多时，只显示部分标签
+    &:nth-child(2n) .bar-label {
+      // 偶数项在紧凑模式下隐藏
+    }
+  }
+  
+  .trend-footer {
+    margin-top: 16px;
+    text-align: center;
+    
+    .trend-desc {
+      font-size: 12px;
+      color: #94a3b8;
     }
   }
 }
@@ -414,20 +1011,22 @@ onMounted(fetchVulnerabilities)
 .content-card {
   background: white;
   border-radius: 16px;
-  border: 1px solid #f1f5f9;
+  border: 1px solid #e2e8f0;
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   
   &:hover {
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-    border-color: #e2e8f0;
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+    border-color: #cbd5e1;
   }
   
   .card-header {
-    padding: 24px 28px;
+    padding: 20px 24px;
     border-bottom: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-between;
@@ -437,67 +1036,43 @@ onMounted(fetchVulnerabilities)
     .header-left {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
       
       .icon-box {
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s;
-        
-        .box-shape {
-          width: 14px;
-          height: 14px;
-          border-radius: 3px;
-          background: currentColor;
-        }
-        
-        &.danger { background: #fef2f2; color: #ef4444; }
-        &.success { background: #ecfdf5; color: #10b981; }
+        display: none; // 隐藏图标框
       }
       
       .title {
-        font-size: 17px;
+        font-size: 16px;
         font-weight: 600;
-        color: #0f172a;
-        letter-spacing: -0.02em;
+        color: #1e293b;
+        letter-spacing: -0.01em;
       }
       
       .badge {
-        background: #f8fafc;
-        color: #64748b;
-        font-size: 12px;
-        padding: 3px 11px;
-        border-radius: 999px;
-        font-weight: 600;
-        
-        &.success { background: #ecfdf5; color: #059669; }
+        display: none; // 隐藏数量徽章
       }
     }
     
     .more-btn {
-      color: #64748b;
+      color: #3b82f6;
       font-size: 14px;
-      font-weight: 400;
-      padding: 8px 18px;
-      border-radius: 8px;
+      font-weight: 500;
+      padding: 0;
+      border-radius: 0;
       transition: all 0.2s ease;
       background: transparent;
-      border: 1px solid #e2e8f0;
+      border: none;
       
       &:hover { 
-        color: #0f172a;
-        border-color: #cbd5e1;
-        background: #fafbfc;
+        color: #2563eb;
+        text-decoration: underline;
       }
       
       :deep(.devui-button-content) {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
       }
     }
   }
