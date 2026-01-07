@@ -407,7 +407,7 @@ const formatPoints = (points: number) => {
 
 // ========== Main Content ==========
 .main-content {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 24px 60px;
   margin-top: -40px;

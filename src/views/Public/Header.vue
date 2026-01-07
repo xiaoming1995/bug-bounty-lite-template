@@ -1,10 +1,21 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { logout } from '@/api/auth'
 
+const route = useRoute()
 const activeKey = ref('home')
+
+watch(() => route.path, (path) => {
+  if (path === '/') activeKey.value = 'home'
+  else if (path.startsWith('/database')) activeKey.value = 'database'
+  else if (path.startsWith('/cnnvd')) activeKey.value = 'cnnvd'
+  else if (path.startsWith('/analysis')) activeKey.value = 'analysis'
+  else if (path.startsWith('/ranking')) activeKey.value = 'ranking'
+  else if (path.startsWith('/security-dashboard')) activeKey.value = 'security-dashboard'
+  else activeKey.value = ''
+}, { immediate: true })
 const mobileMenuVisible = ref(false)
 
 const toggleMobileMenu = () => {
@@ -60,6 +71,9 @@ const handleMenuClick = async (itemId: string) => {
       break
     case 'ranking':
       router.push('/ranking')
+      break
+    case 'security-dashboard':
+      router.push('/security-dashboard')
       break
     case 'logout':
       await handleLogout()
@@ -135,32 +149,32 @@ const handleSubmitVulnerability = () => {
 
     <!-- 中间导航菜单 (桌面端) -->
     <div class="header-center desktop-nav">
-      <d-menu 
-        mode="horizontal" 
-        :default-active="activeKey"
-        :router= true
-      >
-        <d-menu-item id="home" key="/">
-          <template #icon><d-icon name="home"/></template>
-          首页
-        </d-menu-item>
-        <d-menu-item id="database" key="database">
-          <template #icon><d-icon name="database"/></template>
-          漏洞库
-        </d-menu-item>
-        <d-menu-item id="cnnvd" key="cnnvd">
-          <template #icon><d-icon name="notice"/></template>
-          CNNVD动态
-        </d-menu-item>
-        <d-menu-item id="analysis" key="analysis">
-          <template #icon><d-icon name="analysis"/></template>
-          漏洞报告
-        </d-menu-item>
-        <d-menu-item id="ranking" key="ranking">
-          <template #icon><d-icon name="trophy"/></template>
-          排行榜
-        </d-menu-item>
-      </d-menu>
+      <nav class="main-nav">
+        <router-link to="/" class="nav-item" exact-active-class="active">
+          <d-icon name="home" class="nav-icon" />
+          <span>首页</span>
+        </router-link>
+        <router-link to="/database" class="nav-item" active-class="active">
+          <d-icon name="database" class="nav-icon" />
+          <span>漏洞管理</span>
+        </router-link>
+        <router-link to="/cnnvd" class="nav-item" active-class="active">
+          <d-icon name="notice" class="nav-icon" />
+          <span>CNNVD动态</span>
+        </router-link>
+        <router-link to="/analysis" class="nav-item" active-class="active">
+          <d-icon name="analysis" class="nav-icon" />
+          <span>漏洞报告</span>
+        </router-link>
+        <router-link to="/ranking" class="nav-item" active-class="active">
+          <d-icon name="trophy" class="nav-icon" />
+          <span>排行榜</span>
+        </router-link>
+        <router-link to="/security-dashboard" class="nav-item" active-class="active">
+          <d-icon name="monitor" class="nav-icon" />
+          <span>数据屏幕</span>
+        </router-link>
+      </nav>
     </div>
 
     <!-- 右侧功能区 -->
@@ -227,6 +241,10 @@ const handleSubmitVulnerability = () => {
           <d-icon name="trophy" />
           <span>排行榜</span>
         </router-link>
+        <router-link to="/security-dashboard" class="mobile-nav-item" @click="closeMobileMenu">
+          <d-icon name="monitor" />
+          <span>态势大屏</span>
+        </router-link>
       </nav>
     </div>
   </div>
@@ -259,7 +277,41 @@ const handleSubmitVulnerability = () => {
     flex: 1;
     display: flex;
     justify-content: center;
-    :deep(.devui-menu) { background: transparent; }
+    
+    .main-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        color: #64748b;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        position: relative;
+        
+        .nav-icon {
+          font-size: 16px;
+          transition: color 0.2s;
+        }
+        
+        &:hover {
+          color: #5e7ce0;
+          background: rgba(94, 124, 224, 0.08);
+        }
+        
+        &.active {
+          color: #5e7ce0;
+          background: rgba(94, 124, 224, 0.12);
+        }
+      }
+    }
   }
 
   .header-right {

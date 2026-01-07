@@ -43,10 +43,6 @@ onMounted(() => {
       </router-view> -->
       <router-view></router-view>
     </main>
-    <!-- 可选的全局页脚 -->
-    <footer class="app-footer" v-if="$route.meta.showFooter !== false">
-      © 2023 Vue App
-    </footer>
   </div>
 </template>
 <style scoped>
@@ -63,11 +59,6 @@ onMounted(() => {
 .app-main {
   flex: 1;
   /* padding: 2rem; */
-}
-.app-footer {
-  padding: 1rem;
-  text-align: center;
-  background-color: #f8f9fa;
 }
 /* 过渡动画 */
 .fade-enter-active,

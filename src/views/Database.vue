@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import Header from './Public/Header.vue';
 import { get } from '../utils/request';
@@ -45,6 +45,41 @@ const searchKeyword = ref('');
 
 // Table data
 const tableData = ref<ReportItem[]>([]);
+
+// Status filter
+const statusFilter = ref('all');
+const statusOptions = [
+  { label: '全部状态', value: 'all' },
+  { label: '待审核', value: 'pending' },
+  { label: '已确认', value: 'confirmed' },
+  { label: '已修复', value: 'fixed' },
+  { label: '已关闭', value: 'closed' },
+];
+
+// Filtered table data based on status
+const filteredTableData = computed(() => {
+  if (statusFilter.value === 'all') {
+    return tableData.value;
+  }
+  return tableData.value.filter(row => {
+    const rowStatus = getStatusClass(row.status || '');
+    return rowStatus === statusFilter.value;
+  });
+});
+
+// Custom dropdown state
+const filterDropdownOpen = ref(false);
+
+const closeFilterDropdown = () => {
+  setTimeout(() => {
+    filterDropdownOpen.value = false;
+  }, 150);
+};
+
+const selectStatus = (value: string) => {
+  statusFilter.value = value;
+  filterDropdownOpen.value = false;
+};
 
 // Pagination config
 const pagination = ref({
@@ -168,10 +203,7 @@ const viewDetail = (row: ReportItem) => {
   router.push(`/database/detail/${row.id}`);
 };
 
-const editItem = (row: ReportItem) => {
-  console.log('编辑:', row);
-  // TODO: 实现编辑功能
-};
+
 
 const deleteItem = async (row: ReportItem) => {
   if (!confirm('确定要删除这条记录吗？')) {
@@ -188,6 +220,20 @@ const deleteItem = async (row: ReportItem) => {
     alert('删除失败，请重试');
   }
 };
+
+// 获取状态样式
+const getStatusClass = (status: string | undefined) => {
+  if (!status) return 'pending';
+  const statusMap: Record<string, string> = {
+    '已确认': 'confirmed',
+    '待确认': 'pending',
+    '待处理': 'pending',
+    '已修复': 'fixed',
+    '已关闭': 'closed',
+    '已驳回': 'closed'
+  }
+  return statusMap[status] || 'pending'
+}
 
 // 将英文危害等级转换为中文
 const getSeverityText = (severity: string | undefined): string => {
@@ -262,6 +308,7 @@ onMounted(async () => {
 <template>
   <Header />
   <div class="database-page">
+    <div class="database-content">
     <div class="page-header">
       <div class="page-title">
         <h2>漏洞库</h2>
@@ -273,7 +320,26 @@ onMounted(async () => {
     <div class="main-card">
       <div class="toolbar-section">
         <div class="left-tools">
-          <!-- 筛选按钮已移除 -->
+          <div class="filter-group">
+            <label class="filter-label">状态筛选</label>
+            <div class="custom-dropdown" :class="{ open: filterDropdownOpen }">
+              <button class="dropdown-trigger" @click="filterDropdownOpen = !filterDropdownOpen" @blur="closeFilterDropdown">
+                <span>{{ statusOptions.find(o => o.value === statusFilter)?.label }}</span>
+                <d-icon name="chevron-down" class="dropdown-arrow" />
+              </button>
+              <div class="dropdown-menu" v-show="filterDropdownOpen">
+                <div 
+                  v-for="opt in statusOptions" 
+                  :key="opt.value" 
+                  class="dropdown-item"
+                  :class="{ active: statusFilter === opt.value }"
+                  @mousedown="selectStatus(opt.value)"
+                >
+                  {{ opt.label }}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="right-tools">
           <div class="search-box">
@@ -314,11 +380,12 @@ onMounted(async () => {
                   @change="toggleSelectAll"
                 />
               </th>
-              <th class="col-id">ID</th>
+              <th class="col-id">编号</th>
               <th class="col-name">漏洞名称</th>
-              <th class="col-type">风险类型</th>
-              <th class="col-severity">风险等级</th>
-              <th class="col-date">创建日期</th>
+              <th class="col-severity">自评级别</th>
+              <th class="col-approved">通过级别</th>
+              <th class="col-status">状态</th>
+              <th class="col-date">创建时间</th>
               <th class="col-actions text-right">操作</th>
             </tr>
           </thead>
@@ -341,7 +408,7 @@ onMounted(async () => {
               </td>
             </tr>
             <template v-else>
-              <tr v-for="row in tableData" :key="row.id" :class="{ selected: selectedRows.includes(row) }" class="table-row">
+              <tr v-for="row in filteredTableData" :key="row.id" :class="{ selected: selectedRows.includes(row) }" class="table-row">
               <td class="checkbox-col">
                 <d-checkbox
                   :model-value="selectedRows.includes(row)"
@@ -350,23 +417,27 @@ onMounted(async () => {
               </td>
               <td><span class="cve-tag">#{{ row.id }}</span></td>
               <td><div class="vuln-title">{{ row.vulnerability_name }}</div></td>
-              <td><span class="vuln-type">{{ row.vulnerability_type?.config_value || '-' }}</span></td>
               <td>
-                <div class="severity-badge" :class="getSeverityColor(row?.severity)">
-                  <span class="dot"></span>{{ getSeverityText(row?.severity) }}
+                <div class="severity-badge" :class="getSeverityColor(row.severity_level?.config_value || row.severity)">
+                  <span class="dot"></span>{{ getSeverityText(row.severity_level?.config_value || row.severity) }}
                 </div>
+              </td>
+              <td>
+                <div class="severity-badge" :class="getSeverityColor(row.severity)">
+                  <span class="dot"></span>{{ getSeverityText(row.severity) }}
+                </div>
+              </td>
+              <td>
+                <span :class="['status-badge', getStatusClass(row.status)]">{{ row.status || '待处理' }}</span>
               </td>
               <td><span class="date-text">{{ formatDate(row.created_at) }}</span></td>
               <td class="text-right">
                 <div class="row-actions">
                   <button class="action-btn view-btn" title="查看" @click="viewDetail(row)">
-                    <span class="btn-shape view-shape"></span>
-                  </button>
-                  <button class="action-btn edit-btn" title="编辑" @click="editItem(row)">
-                    <span class="btn-shape edit-shape"></span>
+                    <d-icon name="preview" size="16px" />
                   </button>
                   <button class="action-btn delete-btn" title="删除" @click="deleteItem(row)">
-                    <span class="btn-shape delete-shape"></span>
+                    <d-icon name="delete" size="16px" />
                   </button>
                 </div>
               </td>
@@ -388,7 +459,7 @@ onMounted(async () => {
           </div>
           <template v-else>
             <div 
-              v-for="row in tableData" 
+              v-for="row in filteredTableData" 
               :key="row.id" 
               class="mobile-card" 
               :class="{ selected: selectedRows.includes(row) }"
@@ -401,32 +472,33 @@ onMounted(async () => {
                   />
                   <span class="cve-tag">#{{ row.id }}</span>
                 </div>
-                <div class="severity-badge" :class="getSeverityColor(row?.severity)">
-                  <span class="dot"></span>{{ getSeverityText(row?.severity) }}
-                </div>
               </div>
               
               <div class="card-body" @click="viewDetail(row)">
                 <h3 class="vuln-title">{{ row.vulnerability_name }}</h3>
-                <div class="vuln-meta">
-                  <span class="vuln-type">
-                    <d-icon name="tag" size="12px" />
-                    {{ row.vulnerability_type?.config_value || '未知类型' }}
-                  </span>
+                <div class="levels-display">
+                  <div class="level-item">
+                    <span class="label">自评:</span>
+                    <span class="severity-badge" :class="getSeverityColor(row.severity_level?.config_value || row.severity)">{{ getSeverityText(row.severity_level?.config_value || row.severity) }}</span>
+                  </div>
+                  <div class="level-item">
+                    <span class="label">通过:</span>
+                    <span class="severity-badge" :class="getSeverityColor(row.severity)">{{ getSeverityText(row.severity) }}</span>
+                  </div>
                 </div>
               </div>
               
               <div class="card-footer">
-                <span class="date-text">{{ formatDate(row.created_at) }}</span>
+                <div class="meta-info">
+                  <span class="status-badge" :class="getStatusClass(row.status)">{{ row.status || '待处理' }}</span>
+                  <span class="date-text">{{ formatDate(row.created_at) }}</span>
+                </div>
                 <div class="row-actions">
                   <button class="action-btn view-btn" @click.stop="viewDetail(row)">
-                    <span class="btn-shape view-shape"></span>
-                  </button>
-                  <button class="action-btn edit-btn" @click.stop="editItem(row)">
-                    <span class="btn-shape edit-shape"></span>
+                    <d-icon name="preview" size="16px" />
                   </button>
                   <button class="action-btn delete-btn" @click.stop="deleteItem(row)">
-                    <span class="btn-shape delete-shape"></span>
+                    <d-icon name="delete" size="16px" />
                   </button>
                 </div>
               </div>
@@ -446,14 +518,79 @@ onMounted(async () => {
         />
       </div>
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped lang="scss">
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+
+  &.confirmed {
+    background: #fff7e6;
+    color: #ad6800;
+    border: 1px solid #ffd591;
+  }
+
+  &.pending {
+    background: #f0f5ff;
+    color: #1d39c4;
+    border: 1px solid #adc6ff;
+  }
+
+  &.fixed {
+    background: #f6ffed;
+    color: #389e0d;
+    border: 1px solid #b7eb8f;
+  }
+
+  &.closed {
+    background: #f5f5f5;
+    color: #666;
+    border: 1px solid #d9d9d9;
+  }
+}
+
+.levels-display {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  
+  .level-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    
+    .label {
+      color: #94a3b8;
+    }
+  }
+}
+
+.meta-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .database-page {
   padding: var(--spacing-page, 32px) clamp(16px, 4vw, 40px);
-  background: #f8f9fa; // Lighter, cleaner background
-  min-height: 100vh;
+  background: #f8f9fa;
+  min-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.database-content {
+  width: 100%;
+  max-width: 1200px;
   display: flex;
   flex-direction: column;
 }
@@ -501,7 +638,91 @@ onMounted(async () => {
     display: flex;
     gap: 12px;
     align-items: center;
-    // ... filter styles if needed
+    
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      
+      .filter-label {
+        font-size: 14px;
+        font-weight: 500;
+        color: #64748b;
+        white-space: nowrap;
+      }
+      
+      .custom-dropdown {
+        position: relative;
+        
+        .dropdown-trigger {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 16px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #334155;
+          background: #f8fafc;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          min-width: 120px;
+          
+          &:hover {
+            background-color: #f1f5f9;
+          }
+          
+          &:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(94, 124, 224, 0.1);
+          }
+          
+          .dropdown-arrow {
+            font-size: 12px;
+            color: #94a3b8;
+            transition: transform 0.2s ease;
+          }
+        }
+        
+        &.open .dropdown-trigger .dropdown-arrow {
+          transform: rotate(180deg);
+        }
+        
+        .dropdown-menu {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          min-width: 140px;
+          background: #fff;
+          border-radius: 10px;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+          z-index: 1000;
+          padding: 6px;
+          animation: dropdown-fade-in 0.15s ease-out;
+        }
+        
+        .dropdown-item {
+          padding: 10px 14px;
+          font-size: 14px;
+          color: #475569;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          
+          &:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+          }
+          
+          &.active {
+            background: rgba(94, 124, 224, 0.1);
+            color: #5e7ce0;
+            font-weight: 500;
+          }
+        }
+      }
+    }
   }
   .right-tools {
     display: flex;
@@ -804,14 +1025,19 @@ onMounted(async () => {
     max-width: 400px;
   }
   
-  .col-type {
-    width: 140px;
-    min-width: 120px;
+  .col-severity {
+    width: 110px;
+    min-width: 90px;
   }
   
-  .col-severity {
-    width: 120px;
-    min-width: 100px;
+  .col-approved {
+    width: 110px;
+    min-width: 90px;
+  }
+
+  .col-status {
+    width: 100px;
+    min-width: 90px;
   }
   
   .col-date {
@@ -1014,7 +1240,8 @@ onMounted(async () => {
     width: 36px; 
     height: 36px; 
     padding: 0; 
-    border: 1px solid transparent;
+    border: none;
+    outline: none;
     background: #f8fafc;
     border-radius: 8px; 
     cursor: pointer; 
@@ -1024,17 +1251,16 @@ onMounted(async () => {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     
-    .btn-shape { 
-      display: block; 
-      position: relative; 
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    } 
+    .d-icon {
+      color: #94a3b8;
+      transition: all 0.3s;
+    }
     
     &:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
       
-      .btn-shape {
+      .d-icon {
         transform: scale(1.1);
       }
     }
@@ -1043,133 +1269,43 @@ onMounted(async () => {
       transform: translateY(0);
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
       
-      .btn-shape {
+      .d-icon {
         transform: scale(0.95);
       }
     }
   } 
   
-  .view-shape { 
-    width: 14px; 
-    height: 9px; 
-    border: 1.5px solid #94a3b8; 
-    border-radius: 7px; 
-    transition: all 0.3s;
-    
-    &::before { 
-      content: ''; 
-      position: absolute; 
-      top: 50%; 
-      left: 50%; 
-      transform: translate(-50%, -50%); 
-      width: 4px; 
-      height: 4px; 
-      background: #94a3b8; 
-      border-radius: 50%; 
-      transition: all 0.3s;
-    } 
-  } 
-  
-  .edit-shape { 
-    width: 10px; 
-    height: 10px; 
-    border: 1.5px solid #94a3b8; 
-    border-radius: 2px; 
-    transition: all 0.3s;
-    
-    &::before { 
-      content: ''; 
-      position: absolute; 
-      top: -2px; 
-      right: -2px; 
-      width: 4px; 
-      height: 1.5px; 
-      background: #94a3b8; 
-      transform: rotate(45deg); 
-      transition: all 0.3s;
-    } 
-  } 
-  
-  .delete-shape { 
-    width: 10px; 
-    height: 10px; 
-    border: 1.5px solid #f66f6a; 
-    border-radius: 2px; 
-    transition: all 0.3s;
-    
-    &::before { 
-      content: ''; 
-      position: absolute; 
-      top: 5px; 
-      left: 2px; 
-      width: 6px; 
-      height: 1.5px; 
-      background: #f66f6a; 
-      transform: rotate(45deg); 
-      transition: all 0.3s;
-    } 
-  } 
+
   
   .view-btn {
     &:hover {
       background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-      border-color: rgba(14, 165, 233, 0.3);
       
-      .view-shape {
-        border-color: #0284c7;
+      .d-icon {
+        color: #0284c7;
         transform: scale(1.1);
-        
-        &::before {
-          background: #0284c7;
-        }
       }
     }
     
     &:active {
       background: linear-gradient(135deg, #bae6fd 0%, #7dd3fc 100%);
-      border-color: rgba(14, 165, 233, 0.4);
     }
   }
   
-  .edit-btn {
-    &:hover {
-      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-      border-color: rgba(245, 158, 11, 0.3);
-      
-      .edit-shape {
-        border-color: #d97706;
-        transform: scale(1.1);
-        
-        &::before {
-          background: #d97706;
-        }
-      }
-    }
-    
-    &:active {
-      background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
-      border-color: rgba(245, 158, 11, 0.4);
-    }
-  }
+
   
   .delete-btn {
     &:hover {
       background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-      border-color: rgba(239, 68, 68, 0.3);
       
-      .delete-shape {
-        border-color: #dc2626;
+      .d-icon {
+        color: #dc2626;
         transform: scale(1.1);
-        
-        &::before {
-          background: #dc2626;
-        }
       }
     }
     
     &:active {
       background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
-      border-color: rgba(239, 68, 68, 0.4);
     }
   }
 }

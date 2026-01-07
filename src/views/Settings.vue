@@ -99,6 +99,7 @@ const submitPasswordChange = async () => {
       <p class="page-desc">管理您的系统偏好设置和快捷操作</p>
     </div>
 
+    <div class="settings-wrapper">
     <d-row :gutter="24" class="settings-content">
       <!-- 左侧：系统偏好 -->
       <d-col :xs="24" :lg="16">
@@ -314,6 +315,7 @@ const submitPasswordChange = async () => {
         </d-card>
       </d-col>
     </d-row>
+    </div>
   </div>
 
   <!-- 密码修改弹窗 -->
@@ -373,6 +375,15 @@ const submitPasswordChange = async () => {
   min-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
+  align-items: center;
+}
+
+.settings-wrapper {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .settings-content {

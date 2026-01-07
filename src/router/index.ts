@@ -110,6 +110,15 @@ const routes: RouteRecordRaw[] = [
       title: '白帽子排行榜',
       requiresAuth: true
     }
+  },
+  {
+    path: '/security-dashboard',
+    name: 'security-dashboard',
+    component: () => import('@/views/SecurityDashboard.vue'),
+    meta: {
+      title: '安全态势大屏',
+      requiresAuth: true
+    }
   }
 
 

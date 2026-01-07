@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
 import { get, post, upload } from '../utils/request'
 import { PROJECT_API, REPORT_API, CONFIG_API } from '../api/config'
@@ -21,6 +23,7 @@ const formData = reactive({
 const loading = ref(false)
 const agreeTerms = ref(false)
 const projectLoading = ref(false)
+const router = useRouter()
 
 // 项目名称选项（动态加载）
 const projectNameOptions = ref<Array<{ name: string; value: number | null }>>([
@@ -28,6 +31,26 @@ const projectNameOptions = ref<Array<{ name: string; value: number | null }>>([
 
 // 项目加载失败标志
 const projectLoadFailed = ref(false)
+
+// 成功弹窗控制
+const successModalVisible = ref(false)
+const resetForm = () => {
+  formData.project_id = null
+  formData.vulnerabilityName = ''
+  formData.vulnerabilityType = null
+  formData.terminationReason = ''
+  formData.riskLevel = null
+  formData.vulnerabilityLink = ''
+  formData.vulnerabilityDetails = ''
+  formData.attachments = []
+  agreeTerms.value = false
+}
+
+const goToRecords = () => {
+  successModalVisible.value = false
+  router.push('/database')
+}
+
 
 // 项目接口返回类型
 interface ProjectItem {
@@ -187,42 +210,44 @@ const handleSeverityLevelLoadFailed = () => {
 const handleSubmit = async () => {
   // 表单验证
   if (!formData.project_id) {
-    alert('请选择项目名称')
+    Message.warning('请选择项目名称')
     return
   }
 
   if (!formData.vulnerabilityName.trim()) {
-    alert('请填写漏洞名称')
+    Message.warning('请填写漏洞名称')
     return
   }
 
   if (!formData.vulnerabilityType) {
-    alert('请选择漏洞类型')
+    Message.warning('请选择漏洞类型')
     return
   }
 
   if (!formData.terminationReason.trim()) {
-    alert('请填写漏洞危害')
+    Message.warning('请填写漏洞危害')
     return
   }
 
   if (!formData.riskLevel) {
-    alert('请选择危害自评')
+    Message.warning('请选择危害自评')
     return
   }
 
   if (!formData.vulnerabilityLink.trim()) {
-    alert('请填写漏洞链接')
+    Message.warning('请填写漏洞链接')
     return
   }
 
+
+
   if (!formData.vulnerabilityDetails.trim()) {
-    alert('请填写漏洞详情')
+    Message.warning('请填写漏洞详情')
     return
   }
 
   if (!agreeTerms.value) {
-    alert('请先同意服务协议')
+    Message.warning('请先同意服务协议')
     return
   }
 
@@ -272,32 +297,18 @@ const handleSubmit = async () => {
       await post(REPORT_API.CREATE, submitData)
     }
 
-    alert('漏洞提交成功！')
-
-    // 重置表单
+    // 成功处理
+    successModalVisible.value = true
     resetForm()
   } catch (error: any) {
     console.error('提交失败:', error)
-    alert(error.message || '提交失败，请重试！')
+    Message.error(error.message || '提交失败，请重试！')
   } finally {
     loading.value = false
   }
 }
 
-const resetForm = () => {
-  Object.assign(formData, {
-    activityType: '参与活动',
-    project_id: null,
-    vulnerabilityName: '',
-    vulnerabilityType: null,
-    terminationReason: '',
-    riskLevel: null,
-    vulnerabilityLink: '',
-    vulnerabilityDetails: '',
-    attachments: []
-  })
-  agreeTerms.value = false
-}
+
 
 const handleFileUpload = (files: File[] | FileList) => {
   // DevUI Upload 组件的 file-select 事件会传递文件数组
@@ -309,7 +320,7 @@ const handleFileUpload = (files: File[] | FileList) => {
     const maxSize = file.name.match(/\.(pdf|docx?)$/i) ? 8 * 1024 * 1024 : 500 * 1024 * 1024 // 8MB 或 500MB
     if (file.size > maxSize) {
       const maxSizeMB = maxSize / (1024 * 1024)
-      alert(`文件 ${file.name} 超过大小限制 ${maxSizeMB}MB`)
+      Message.warning(`文件 ${file.name} 超过大小限制 ${maxSizeMB}MB`)
       return
     }
     
@@ -318,7 +329,7 @@ const handleFileUpload = (files: File[] | FileList) => {
     const allowedExtensions = ['pdf', 'doc', 'docx', 'apk', 'ipa', 'aar', 'zip', 'jar', 'rar', '7z']
     
     if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
-      alert(`文件 ${file.name} 格式不支持，支持的格式：${allowedExtensions.join(', ')}`)
+      Message.warning(`文件 ${file.name} 格式不支持，支持的格式：${allowedExtensions.join(', ')}`)
       return
     }
     
@@ -434,9 +445,20 @@ onUnmounted(() => {
   <Header />
 
   <div class="submit-container">
+    <div class="page-header">
+      <h1 class="page-title">
+        <d-icon name="edit" /> <!-- using edit icon for submission -->
+        提交漏洞
+      </h1>
+      <p class="page-desc">欢迎提交安全漏洞报告，共同守护网络安全</p>
+    </div>
+
     <div class="main-content">
       <!-- 左侧表单区域 -->
-      <div class="form-section">
+      <d-card class="submit-card">
+        <div class="card-header">
+          <h3>漏洞详情表单</h3>
+        </div>
         <d-form 
           :data="formData" 
           layout="vertical" 
@@ -447,7 +469,11 @@ onUnmounted(() => {
           :validate-on-submit="false"
         >
           <!-- 项目名称 -->
-          <d-form-item label="项目名称" required>
+          <d-form-item>
+            <template #label>
+              <span>项目名称</span>
+              <span class="required-star">*</span>
+            </template>
             <d-select
               v-model="formData.project_id"
               :options="projectNameOptions"
@@ -458,7 +484,11 @@ onUnmounted(() => {
           </d-form-item>
 
           <!-- 漏洞名称 -->
-          <d-form-item label="漏洞名称" required>
+          <d-form-item>
+            <template #label>
+              <span>漏洞名称</span>
+              <span class="required-star">*</span>
+            </template>
             <d-input
               v-model="formData.vulnerabilityName"
               placeholder="请填写漏洞名称（字数限制50以内）"
@@ -468,7 +498,11 @@ onUnmounted(() => {
           </d-form-item>
 
           <!-- 漏洞类型 -->
-          <d-form-item label="漏洞类型" required>
+          <d-form-item>
+            <template #label>
+              <span>漏洞类型</span>
+              <span class="required-star">*</span>
+            </template>
             <d-select
               v-model="formData.vulnerabilityType"
               :options="vulnerabilityTypeOptions"
@@ -478,7 +512,11 @@ onUnmounted(() => {
           </d-form-item>
 
           <!-- 漏洞危害 -->
-          <d-form-item label="漏洞危害" required>
+          <d-form-item>
+            <template #label>
+              <span>漏洞危害</span>
+              <span class="required-star">*</span>
+            </template>
             <d-textarea
               v-model="formData.terminationReason"
               placeholder="请填写漏洞危害描述"
@@ -489,7 +527,11 @@ onUnmounted(() => {
           </d-form-item>
 
           <!-- 危害自评 -->
-          <d-form-item label="危害自评" required>
+          <d-form-item>
+            <template #label>
+              <span>危害自评</span>
+              <span class="required-star">*</span>
+            </template>
             <template v-if="riskLevelLoading">
               <span class="loading-text">加载中...</span>
             </template>
@@ -508,7 +550,11 @@ onUnmounted(() => {
           </d-form-item>
 
           <!-- 漏洞链接 -->
-          <d-form-item label="漏洞链接" required>
+          <d-form-item>
+            <template #label>
+              <span>漏洞链接</span>
+              <span class="required-star">*</span>
+            </template>
             <d-input
               v-model="formData.vulnerabilityLink"
               placeholder="请填写存在安全问题的链接地址（字数限制500以内）"
@@ -518,7 +564,11 @@ onUnmounted(() => {
           </d-form-item>
 
           <!-- 漏洞详情 -->
-          <d-form-item label="漏洞详情" required>
+          <d-form-item>
+             <template #label>
+              <span>漏洞详情</span>
+              <span class="required-star">*</span>
+            </template>
             <d-textarea
               v-model="formData.vulnerabilityDetails"
               placeholder="请详细描述漏洞信息..."
@@ -558,7 +608,7 @@ onUnmounted(() => {
           <!-- 服务协议 -->
           <d-form-item>
             <d-checkbox v-model="agreeTerms">
-              我已仔细阅读并同意《百度安全应急响应中心》(bsrc) 服务协议
+              我已仔细阅读并同意《安全应急响应中心》服务协议
             </d-checkbox>
           </d-form-item>
 
@@ -575,80 +625,250 @@ onUnmounted(() => {
             </d-button>
           </div>
         </d-form>
-      </div>
+      </d-card>
 
-      <!-- 右侧提示区域 -->
-      <div class="tips-section">
-        <div class="tips-card">
-          <h3>提示:</h3>
-          <ul class="tips-list">
-            <li class="tip-danger">
-              百度不允许任何未经授权的渗透测试行为或恶意漏洞攻击行为
-            </li>
-            <li class="tip-warning">
-              测试过程中不得获取、修改、删除用户数据，不得影响业务正常运行
-            </li>
-            <li class="tip-info">
-              SSRF内网探测地址
-              <div class="tip-details">
-                <p>域名: http://bsrc.baidu.com</p>
-                <p>IP: http://10.1.1.1</p>
-              </div>
-            </li>
-            <li class="tip-info">
-              注意事项:
-              <div class="tip-details">
-                <p>1. 证明SSRF漏洞时请访问测试其他内网地址，参考文档info，参数攻击</p>
-                <p>2. 使用绕过时请按技术文档说明，参考文档info，参数攻击</p>
-              </div>
-            </li>
-          </ul>
 
-          <div class="additional-info">
-            <p>提交前请仔细阅读</p>
-            <a href="#" class="info-link">厂商行为 V8.0.pdf</a>
-            <p>《百度安全应急响应中心》</p>
-          </div>
+    </div>
 
-          <div class="evaluation-info">
-            <h4>我们的评判标准</h4>
-            <ul>
-              <li>BSRC收到的漏洞将按照漏洞等级进行奖励</li>
-              <li>BSRC将每月对外公布漏洞统计信息</li>
-              <li>危害较大、利用方式巧妙的漏洞将获得额外漏洞奖励</li>
-            </ul>
-          </div>
-
-          <div class="contact-info">
-            <a href="#" class="contact-link">测试报告人员</a>
-          </div>
+    <!-- 提交成功模态框 -->
+    <d-modal
+      v-model="successModalVisible"
+      :show-close="false"
+      class="status-modal"
+      width="440px"
+    >
+      <div class="status-content success">
+        <div class="status-circle">
+          <d-icon name="right" size="36px" color="#fff" />
+        </div>
+        <div class="text-content">
+          <h3>漏洞提交成功</h3>
+          <p>感谢您的贡献！我们将会尽快处理您的报告，您可以在记录页面查看处理进度。</p>
         </div>
       </div>
-    </div>
+      <template #footer>
+        <div class="modal-actions">
+          <d-button bs-style="common" class="btn-secondary" @click="goToRecords">查看记录</d-button>
+          <d-button bs-style="primary" class="btn-primary" @click="successModalVisible = false">继续提交</d-button>
+        </div>
+      </template>
+    </d-modal>
   </div>
 </template>
 
 <style scoped lang="scss">
 .submit-container {
-  padding: 24px;
-  background: #f5f7fa;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
   min-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.page-header {
+  margin-bottom: 32px;
+  width: 100%;
+  max-width: 1200px;
+  text-align: center;
+
+  .page-title {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a3353;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+
+    .devui-icon {
+      color: #3b82f6;
+    }
+  }
+
+  .page-desc {
+    margin: 0;
+    font-size: 16px;
+    color: #64748b;
+  }
 }
 
 .main-content {
+  width: 100%;
+  max-width: 1200px;
   display: flex;
-  gap: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
+  justify-content: center;
 }
 
-// 左侧表单区域
-.form-section {
-  flex: 1;
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+// 提交卡片
+.submit-card {
+  width: 100%;
+  max-width: 850px;
+  border-radius: 16px !important;
+  border: 1px solid rgba(59, 130, 246, 0.1) !important;
+  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.05), 0 8px 10px -6px rgba(59, 130, 246, 0.05) !important;
+  background: #ffffff !important;
+  
+  :deep(.devui-card__body) {
+    padding: 40px;
+  }
+}
+
+.card-header {
+  margin-bottom: 32px;
+  border-bottom: 2px solid #f0f7ff;
+  padding-bottom: 20px;
+
+  h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a3353;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: #3b82f6;
+      border-radius: 2px;
+    }
+  }
+}
+
+// 状态弹框样式 (借鉴登录页)
+.status-modal {
+  :deep(.devui-modal) {
+    border-radius: 20px !important;
+    overflow: hidden !important;
+    border: none !important;
+    box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.2) !important;
+    animation: modalFadeIn 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  }
+
+  :deep(.devui-modal-header) {
+    display: none !important;
+  }
+
+  :deep(.devui-modal-body) {
+    padding: 60px 40px 40px !important;
+    background: #ffffff !important;
+  }
+
+  :deep(.devui-modal-footer) {
+    border: none !important;
+    padding: 0 40px 52px !important;
+    justify-content: flex-end !important;
+    background: #ffffff !important;
+  }
+}
+
+.status-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+
+  .status-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1px solid currentColor;
+      opacity: 0.15;
+    }
+  }
+
+  &.success .status-circle {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #10b981;
+    box-shadow: 0 8px 16px rgba(16, 185, 129, 0.2);
+  }
+
+  h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 12px;
+  }
+
+  p {
+    font-size: 16px;
+    color: #64748b;
+    line-height: 1.8;
+    margin: 0;
+  }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+
+  .devui-btn {
+    min-width: 100px;
+    height: 44px !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    transition: all 0.3s ease !important;
+  }
+
+  .btn-primary {
+    background: #3b82f6 !important;
+    border: none !important;
+    color: white !important;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3) !important;
+
+    &:hover {
+      background: #2563eb !important;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4) !important;
+    }
+  }
+
+  .btn-secondary {
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #64748b !important;
+
+    &:hover {
+      background: #e2e8f0 !important;
+      color: #1e293b !important;
+    }
+  }
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.2; }
+  50% { transform: scale(1.2); opacity: 0; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+// 全局覆盖 Message 组件样式，移除边框
+:global(.devui-message) {
+  border: none !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 12px !important;
 }
 
 // 加载状态文字
@@ -661,6 +881,14 @@ onUnmounted(() => {
 .error-text {
   color: #ff4d4f;
   font-size: 14px;
+}
+
+// 必填项样式 - 强制显示红星
+// 必填项样式 - 强制显示红星
+.required-star {
+  color: #f5222d;
+  margin-left: 4px;
+  font-family: SimSun, sans-serif;
 }
 
 
@@ -786,13 +1014,9 @@ onUnmounted(() => {
       font-weight: 500;
       color: #333;
       margin-bottom: 8px;
-
-      &::before {
-        content: '*';
-        color: #ff4444;
-        margin-right: 4px;
-      }
     }
+
+
 
     .devui-input,
     .devui-textarea,

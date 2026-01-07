@@ -246,7 +246,16 @@ onMounted(fetchVulnerabilities)
           <span class="more-link" @click="viewMore('distribution')">查看详情</span>
         </div>
         <div class="card-body">
-          <div class="chart-wrapper">
+          <div v-if="loading" class="chart-wrapper skeleton-chart">
+            <div class="skeleton-pulse donut-placeholder"></div>
+            <div class="chart-legend">
+              <div v-for="n in 4" :key="n" class="legend-item">
+                <div class="skeleton-pulse dot-placeholder"></div>
+                <div class="skeleton-pulse text-placeholder" style="width: 120px"></div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="chart-wrapper">
             <!-- 环形图 -->
             <div class="donut-chart">
               <svg viewBox="0 0 200 200">
@@ -303,38 +312,51 @@ onMounted(fetchVulnerabilities)
           </div>
         </div>
         <div class="card-body">
-          <div class="trend-chart-wrapper">
-            <!-- Y轴标签 -->
+          <div v-if="loading" class="trend-chart-wrapper skeleton-trend">
             <div class="y-axis">
-              <span>{{ trendMax }}</span>
-              <span>{{ Math.round(trendMax / 2) }}</span>
-              <span>0</span>
+              <div v-for="n in 3" :key="n" class="skeleton-pulse text-placeholder" style="width: 30px; margin-bottom: 40px"></div>
             </div>
-            
-            <!-- 柱状图 -->
             <div class="bar-chart">
-              <div 
-                v-for="(item, index) in trendData" 
-                :key="index" 
-                class="bar-item"
-              >
-                <div class="bar-wrapper">
-                  <div 
-                    class="bar" 
-                    :style="{ height: (item.value / trendMax * 100) + '%' }"
-                  >
-                    <span class="bar-value">{{ item.value }}</span>
-                  </div>
-                </div>
-                <span class="bar-label">{{ item.label }}</span>
+              <div v-for="n in 12" :key="n" class="bar-item">
+                <div class="skeleton-pulse bar-placeholder" :style="{ height: (20 + (n * 5) % 60) + '%' }"></div>
+                <div class="skeleton-pulse text-placeholder" style="width: 24px; margin-top: 8px"></div>
               </div>
             </div>
           </div>
-          
-          <!-- 底部说明 -->
-          <div class="trend-footer">
-            <span class="trend-desc">漏洞数量</span>
-          </div>
+          <template v-else>
+            <div class="trend-chart-wrapper">
+              <!-- Y轴标签 -->
+              <div class="y-axis">
+                <span>{{ trendMax }}</span>
+                <span>{{ Math.round(trendMax / 2) }}</span>
+                <span>0</span>
+              </div>
+              
+              <!-- 柱状图 -->
+              <div class="bar-chart">
+                <div 
+                  v-for="(item, index) in trendData" 
+                  :key="index" 
+                  class="bar-item"
+                >
+                  <div class="bar-wrapper">
+                    <div 
+                      class="bar" 
+                      :style="{ height: (item.value / trendMax * 100) + '%' }"
+                    >
+                      <span class="bar-value">{{ item.value }}</span>
+                    </div>
+                  </div>
+                  <span class="bar-label">{{ item.label }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 底部说明 -->
+            <div class="trend-footer">
+              <span class="trend-desc">漏洞数量</span>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -508,6 +530,8 @@ onMounted(fetchVulnerabilities)
 .dot-placeholder { width: 8px; height: 8px; border-radius: 50%; margin-right: 16px; }
 .title-placeholder { height: 14px; width: 60%; margin-bottom: 8px; }
 .meta-placeholder { height: 12px; width: 40%; }
+.donut-placeholder { width: 180px; height: 180px; border-radius: 50%; flex-shrink: 0; }
+.bar-placeholder { width: 18px; border-radius: 4px 4px 0 0; }
 
 .stats-row {
   display: flex;
