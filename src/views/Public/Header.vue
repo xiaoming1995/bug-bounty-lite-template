@@ -10,7 +10,7 @@ const activeKey = ref('home')
 watch(() => route.path, (path) => {
   if (path === '/') activeKey.value = 'home'
   else if (path.startsWith('/database')) activeKey.value = 'database'
-  else if (path.startsWith('/cnnvd')) activeKey.value = 'cnnvd'
+
   else if (path.startsWith('/analysis')) activeKey.value = 'analysis'
   else if (path.startsWith('/ranking')) activeKey.value = 'ranking'
   else if (path.startsWith('/security-dashboard')) activeKey.value = 'security-dashboard'
@@ -158,9 +158,9 @@ const handleSubmitVulnerability = () => {
           <d-icon name="database" class="nav-icon" />
           <span>漏洞管理</span>
         </router-link>
-        <router-link to="/cnnvd" class="nav-item" active-class="active">
-          <d-icon name="notice" class="nav-icon" />
-          <span>CNNVD动态</span>
+        <router-link to="/project-hall" class="nav-item" active-class="active">
+          <d-icon name="classroom-board" class="nav-icon" />
+          <span>项目大厅</span>
         </router-link>
         <router-link to="/analysis" class="nav-item" active-class="active">
           <d-icon name="analysis" class="nav-icon" />
@@ -229,9 +229,9 @@ const handleSubmitVulnerability = () => {
           <d-icon name="database" />
           <span>漏洞库</span>
         </router-link>
-        <router-link to="/cnnvd" class="mobile-nav-item" @click="closeMobileMenu">
-          <d-icon name="notice" />
-          <span>CNNVD动态</span>
+        <router-link to="/project-hall" class="mobile-nav-item" @click="closeMobileMenu">
+          <d-icon name="classroom-board" />
+          <span>项目大厅</span>
         </router-link>
         <router-link to="/analysis" class="mobile-nav-item" @click="closeMobileMenu">
           <d-icon name="analysis" />

@@ -85,6 +85,24 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/project-hall',
+    name: 'project-hall',
+    component: () => import('@/views/ProjectHall.vue'),
+    meta: {
+      title: '项目大厅',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/project-hall/:id',
+    name: 'project-hall-detail',
+    component: () => import('@/views/ProjectHallDetail.vue'),
+    meta: {
+      title: '项目详情',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/analysis',
     name: 'analysis',
     component: () => import('@/views/Analysis.vue'),
@@ -93,15 +111,7 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true  // 需要登录
     }
   },
-  {
-    path: '/cnnvd',
-    name: 'cnnvd',
-    component: () => import('@/views/CNNVD.vue'),
-    meta: {
-      title: 'CNNVD动态',
-      requiresAuth: true  // 需要登录
-    }
-  },
+
   {
     path: '/ranking',
     name: 'ranking',
