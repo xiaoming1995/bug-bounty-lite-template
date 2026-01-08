@@ -103,15 +103,23 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/analysis',
-    name: 'analysis',
-    component: () => import('@/views/Analysis.vue'),
+    path: '/learning-center',
+    name: 'learning-center',
+    component: () => import('@/views/LearningCenter.vue'),
     meta: {
-      title: '漏洞报告',
-      requiresAuth: true  // 需要登录
+      title: '学习中心',
+      requiresAuth: true
     }
   },
-
+  {
+    path: '/learning-center/:id',
+    name: 'learning-center-detail',
+    component: () => import('@/views/LearningCenterDetail.vue'),
+    meta: {
+      title: '文章详情',
+      requiresAuth: true
+    }
+  },
   {
     path: '/ranking',
     name: 'ranking',

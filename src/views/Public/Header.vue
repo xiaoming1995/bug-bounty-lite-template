@@ -11,7 +11,6 @@ watch(() => route.path, (path) => {
   if (path === '/') activeKey.value = 'home'
   else if (path.startsWith('/database')) activeKey.value = 'database'
 
-  else if (path.startsWith('/analysis')) activeKey.value = 'analysis'
   else if (path.startsWith('/ranking')) activeKey.value = 'ranking'
   else if (path.startsWith('/security-dashboard')) activeKey.value = 'security-dashboard'
   else activeKey.value = ''
@@ -162,9 +161,9 @@ const handleSubmitVulnerability = () => {
           <d-icon name="classroom-board" class="nav-icon" />
           <span>项目大厅</span>
         </router-link>
-        <router-link to="/analysis" class="nav-item" active-class="active">
-          <d-icon name="analysis" class="nav-icon" />
-          <span>漏洞报告</span>
+        <router-link to="/learning-center" class="nav-item" active-class="active">
+          <d-icon name="book-open" class="nav-icon" />
+          <span>学习中心</span>
         </router-link>
         <router-link to="/ranking" class="nav-item" active-class="active">
           <d-icon name="trophy" class="nav-icon" />
@@ -233,9 +232,9 @@ const handleSubmitVulnerability = () => {
           <d-icon name="classroom-board" />
           <span>项目大厅</span>
         </router-link>
-        <router-link to="/analysis" class="mobile-nav-item" @click="closeMobileMenu">
-          <d-icon name="analysis" />
-          <span>漏洞报告</span>
+        <router-link to="/learning-center" class="mobile-nav-item" @click="closeMobileMenu">
+          <d-icon name="book-open" />
+          <span>学习中心</span>
         </router-link>
         <router-link to="/ranking" class="mobile-nav-item" @click="closeMobileMenu">
           <d-icon name="trophy" />
@@ -340,6 +339,11 @@ const handleSubmitVulnerability = () => {
       line-height: 1.5;
       text-align: center;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      outline: none;
+      
+      &:focus {
+        outline: none;
+      }
       
       // 悬停效果 - 简洁的加深效果
       &:hover:not(:disabled) {

@@ -43,10 +43,11 @@ const router = useRouter()
 // 导航菜单
 const navItems = [
   { name: '首页', path: '/' },
-  { name: '漏洞库', path: '/database' },
-  { name: 'CNNVD', path: '/cnnvd' },
-  { name: '漏洞报告', path: '/analysis' },
-  { name: '排行榜', path: '/ranking' }
+  { name: '漏洞管理', path: '/database' },
+  { name: '项目大厅', path: '/project-hall' },
+  { name: '学习中心', path: '/learning-center' },
+  { name: '排行榜', path: '/ranking' },
+  { name: '数据屏幕', path: '/security-dashboard' }
 ]
 
 const handleNav = (path: string) => {
@@ -249,6 +250,7 @@ const getTrendPath = (type: 'new' | 'recur') => {
           :key="index"
           @click.prevent="handleNav(item.path)"
           class="nav-item"
+          :class="{ active: item.path === '/security-dashboard' }"
         >
           {{ item.name }}
         </a>
@@ -553,7 +555,16 @@ const getTrendPath = (type: 'new' | 'recur') => {
     background: #1f2d3d;
   }
   
-  /* Active state logic could be added if needed, but for dashboard usually implies we are here */
+  &.active {
+    color: #00b7ff;
+    background: rgba(0, 183, 255, 0.1);
+    border: 1px solid rgba(0, 183, 255, 0.2);
+  }
+  
+  outline: none;
+  &:focus {
+    outline: none;
+  }
 }
 
 .header-right {
@@ -590,6 +601,12 @@ const getTrendPath = (type: 'new' | 'recur') => {
   background: #00b7ff;
   color: #fff;
   border-color: #00b7ff;
+}
+.action-btn {
+  outline: none;
+  &:focus {
+    outline: none;
+  }
 }
 
 /* Dashboard Grid */

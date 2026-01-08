@@ -167,7 +167,9 @@ onMounted(() => {
                 :disabled="project.status !== 'recruiting'"
                 @click="acceptTask(project)"
               >
-                <d-icon name="add" />
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
                 <span>接受任务</span>
               </button>
             </div>
@@ -426,6 +428,12 @@ onMounted(() => {
       background: #cbd5e1;
       cursor: not-allowed;
     }
+  }
+  
+  .btn-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
   }
 }
 
