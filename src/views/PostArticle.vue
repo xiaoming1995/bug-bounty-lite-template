@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { QuillEditor } from '@vueup/vue-quill'
 import { Message } from 'vue-devui'
+import Header from './Public/Header.vue'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
 const router = useRouter()
 const loading = ref(false)
 const showSuccessModal = ref(false)
+const showLeaveConfirmModal = ref(false)
+const isSubmitted = ref(false)
+let leaveNext: any = null
 
 const formModel = reactive({
   title: '',
@@ -15,6 +19,36 @@ const formModel = reactive({
   content: '',
   attachments: [] as any[]
 })
+
+// 离开页面前的二次确认
+onBeforeRouteLeave((to, from, next) => {
+  // 如果已经提交成功，或者表单没有任何内容，则直接离开
+  const hasContent = formModel.title || formModel.description || (formModel.content && formModel.content !== '<p><br></p>')
+  
+  if (isSubmitted.value || !hasContent) {
+    next()
+  } else {
+    // 保存 next 回调，显示自定义弹窗
+    leaveNext = next
+    showLeaveConfirmModal.value = true
+  }
+})
+
+const handleConfirmLeave = () => {
+  showLeaveConfirmModal.value = false
+  if (leaveNext) {
+    leaveNext()
+    leaveNext = null
+  }
+}
+
+const handleCancelLeave = () => {
+  showLeaveConfirmModal.value = false
+  if (leaveNext) {
+    leaveNext(false)
+    leaveNext = null
+  }
+}
 
 // Quill 编辑器选项
 const editorOptions = {
@@ -58,6 +92,7 @@ const handleSubmit = async () => {
   try {
     console.log('提交的文章数据:', formModel)
     await new Promise(resolve => setTimeout(resolve, 1500))
+    isSubmitted.value = true
     showSuccessModal.value = true
   } catch (error) {
     console.error('发布失败:', error)
@@ -78,6 +113,7 @@ const handleCloseModal = () => {
 </script>
 
 <template>
+  <Header />
   <div class="post-article-container">
     <div class="form-card">
       <div class="form-header">
@@ -164,6 +200,26 @@ const handleCloseModal = () => {
         </div>
         <div class="modal-actions">
           <d-button bs-style="primary" class="btn-confirm" @click="handleCloseModal">确 定</d-button>
+        </div>
+      </div>
+    </d-modal>
+    <d-modal
+      v-model="showLeaveConfirmModal"
+      :show-close="false"
+      class="compact-confirm-modal"
+      width="480px"
+    >
+      <div class="compact-confirm-content" style="display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px; background: #fff;">
+        <div class="confirm-main" style="display: flex; flex-direction: column; align-items: center; gap: 16px; margin-bottom: 32px;">
+          <d-icon name="warning-o" size="32px" color="#f59e0b" class="main-icon" style="margin-bottom: 8px;" />
+          <div class="text-wrap" style="display: flex; flex-direction: column; align-items: center;">
+            <h4 class="confirm-title" style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 12px 0; letter-spacing: -0.01em;">离开此页面？</h4>
+            <p class="confirm-desc" style="font-size: 14px; color: #475569; margin: 0; line-height: 1.6; max-width: 280px;">当前编辑的内容尚未提交，离开会导致这些信息丢失。</p>
+          </div>
+        </div>
+        <div class="confirm-footer" style="display: flex; justify-content: center; gap: 16px; width: 100%;">
+          <button class="btn-plain" style="flex: 1; max-width: 120px; height: 38px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: #f1f5f9; color: #475569; letter-spacing: 2px; text-indent: 2px;" @click="handleCancelLeave">取消</button>
+          <button class="btn-solid" style="flex: 1; max-width: 120px; height: 38px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: #0f172a; color: #fff; letter-spacing: 2px; text-indent: 2px;" @click="handleConfirmLeave">确定</button>
         </div>
       </div>
     </d-modal>
@@ -447,11 +503,110 @@ const handleCloseModal = () => {
       }
     }
   }
-}
 
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 0.2; }
-  50% { transform: scale(1.15); opacity: 0.1; }
-  100% { transform: scale(1); opacity: 0.2; }
+  // 紧凑型长方形确认弹窗 (强制居中版)
+  .compact-confirm-modal {
+    :deep(.devui-modal) {
+      border-radius: 12px !important;
+      overflow: hidden !important;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    :deep(.devui-modal-header), :deep(.devui-modal-body) {
+      padding: 0 !important;
+    }
+
+    .compact-confirm-content {
+      padding: 40px !important;
+      background: #fff !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+
+      .confirm-main {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 16px !important;
+        margin-bottom: 32px !important;
+        width: 100% !important;
+
+        .main-icon {
+          margin-bottom: 8px !important;
+        }
+
+        .text-wrap {
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          width: 100% !important;
+
+          .confirm-title {
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            color: #0f172a !important;
+            margin: 0 0 12px 0 !important;
+            letter-spacing: -0.01em !important;
+            width: 100% !important;
+          }
+          .confirm-desc {
+            font-size: 14px !important;
+            color: #475569 !important;
+            margin: 0 !important;
+            line-height: 1.6 !important;
+            max-width: 280px !important;
+            display: inline-block !important;
+          }
+        }
+      }
+
+      .confirm-footer {
+        display: flex !important;
+        justify-content: center !important;
+        gap: 12px !important;
+        width: 100% !important;
+
+        button {
+          flex: 1 !important;
+          max-width: 140px !important;
+          height: 40px !important;
+          border-radius: 8px !important;
+          font-size: 14px !important;
+          font-weight: 600 !important;
+          cursor: pointer !important;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+          border: none !important;
+        }
+
+        .btn-plain {
+          background: #f1f5f9 !important;
+          color: #475569 !important;
+          &:hover {
+            background: #e2e8f0 !important;
+            color: #1e293b !important;
+          }
+        }
+
+        .btn-solid {
+          background: #0f172a !important;
+          color: #fff !important;
+          &:hover {
+            background: #000 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15) !important;
+          }
+        }
+      }
+    }
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.2; }
+    50% { transform: scale(1.15); opacity: 0.1; }
+    100% { transform: scale(1); opacity: 0.2; }
+  }
 }
 </style>
