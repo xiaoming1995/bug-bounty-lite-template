@@ -123,6 +123,10 @@ const handleSubmitVulnerability = () => {
   })
 }
 
+const handlePostArticle = () => {
+  router.push('/post-article')
+}
+
 </script>
 
 <template>
@@ -178,6 +182,12 @@ const handleSubmitVulnerability = () => {
 
     <!-- 右侧功能区 -->
     <div class="header-right">
+      <button
+        class="post-article-btn"
+        @click="handlePostArticle"
+      >
+        发布文章
+      </button>
       <button
         class="submit-vuln-btn"
         :class="{ 'is-loading': isSubmitting }"
@@ -377,6 +387,39 @@ const handleSubmitVulnerability = () => {
       &:focus-visible {
         outline: 2px solid rgba(31, 41, 55, 0.2);
         outline-offset: 2px;
+      }
+    }
+
+    // 发布文章按钮 - 采用主题色调，以示区别
+    .post-article-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      background: #5e7ce0;
+      border: 1px solid #5e7ce0;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      user-select: none;
+      line-height: 1.5;
+      text-align: center;
+      box-shadow: 0 1px 2px rgba(94, 124, 224, 0.2);
+      outline: none;
+
+      &:hover:not(:disabled) {
+        background: #4a66cc;
+        border-color: #4a66cc;
+        box-shadow: 0 4px 6px rgba(94, 124, 224, 0.3);
+      }
+
+      &:active:not(:disabled) {
+        transform: scale(0.98);
+        background: #3d55b3;
       }
     }
 

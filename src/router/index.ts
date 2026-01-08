@@ -137,6 +137,15 @@ const routes: RouteRecordRaw[] = [
       title: '安全态势大屏',
       requiresAuth: true
     }
+  },
+  {
+    path: '/post-article',
+    name: 'post-article',
+    component: () => import('@/views/PostArticle.vue'),
+    meta: {
+      title: '发布文章',
+      requiresAuth: true
+    }
   }
 
 
