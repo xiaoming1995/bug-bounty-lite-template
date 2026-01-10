@@ -5,6 +5,8 @@ import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
 import { get, post, upload } from '../utils/request'
 import { PROJECT_API, REPORT_API, CONFIG_API } from '../api/config'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
 // 表单数据
 const formData = reactive({
@@ -618,19 +620,26 @@ onUnmounted(() => {
             />
           </d-form-item>
 
-          <!-- 漏洞详情 -->
+          <!-- 漏洞详情 (升级为富文本) -->
           <d-form-item>
              <template #label>
               <span>漏洞详情</span>
               <span class="required-star">*</span>
             </template>
-            <d-textarea
-              v-model="formData.vulnerabilityDetails"
-              placeholder="请详细描述漏洞信息..."
-              :rows="8"
-              :maxlength="10000"
-              show-word-limit
-            />
+            <div class="rich-editor-wrapper">
+              <QuillEditor
+                v-model:content="formData.vulnerabilityDetails"
+                content-type="html"
+                theme="snow"
+                :toolbar="[
+                  ['bold', 'italic', 'underline', 'strike'],
+                  [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                  ['code-block', 'link'],
+                  ['clean']
+                ]"
+                placeholder="请详细描述漏洞信息，支持富文本排版..."
+              />
+            </div>
           </d-form-item>
 
           <!-- 上传附件 -->
@@ -1334,5 +1343,25 @@ onUnmounted(() => {
     }
   }
 
+}
+
+.rich-editor-wrapper {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e1e4e8;
+  
+  :deep(.ql-toolbar.ql-snow) {
+    border: none;
+    border-bottom: 1px solid #e1e4e8;
+    background: #f8f9fa;
+  }
+  
+  :deep(.ql-container.ql-snow) {
+    border: none;
+    min-height: 240px;
+    font-size: 14px;
+    color: #24292e;
+  }
 }
 </style>
