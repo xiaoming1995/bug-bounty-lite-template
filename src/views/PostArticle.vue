@@ -1,17 +1,43 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { useRouter, onBeforeRouteLeave } from 'vue-router'
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { QuillEditor } from '@vueup/vue-quill'
 import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const showSuccessModal = ref(false)
 const showLeaveConfirmModal = ref(false)
 const isSubmitted = ref(false)
+const isEditMode = ref(false)
 let leaveNext: any = null
+
+// 判断是否为编辑模式
+onMounted(() => {
+  if (route.params.id) {
+    isEditMode.value = true
+    loadArticleData(route.params.id as string)
+  }
+})
+
+// 加载 Mock 文章数据（编辑模式）
+const loadArticleData = (id: string) => {
+  console.log('加载文章数据 ID:', id)
+  // 模拟从后端获取数据
+  setTimeout(() => {
+    formModel.title = '深入理解 Web 安全中的 XSS 攻击与防御'
+    formModel.description = '这是一篇关于 XSS 攻击原理与深度防护技术的专业研究文章。'
+    formModel.content = `
+      <h2>研究背景</h2>
+      <p>随着 Web 应用的功能日益复杂，跨站脚本攻击 (XSS) 仍然是最具威胁的漏洞之一...</p>
+      <h2>防护建议</h2>
+      <p>1. 始终对用户输入进行严格的转义处理；2. 部署强大的内容安全策略 (CSP)...</p>
+    `
+  }, 500)
+}
 
 const formModel = reactive({
   title: '',
@@ -49,6 +75,11 @@ const handleCancelLeave = () => {
     leaveNext = null
   }
 }
+
+// 修复 lint: 虽然 to, from 未直接读取，但在导航守卫中必须声明
+// @ts-ignore
+console.log('Router sync:', { to: route.path }) 
+
 
 // Quill 编辑器选项
 const editorOptions = {
@@ -108,7 +139,7 @@ const handleCancel = () => {
 
 const handleCloseModal = () => {
   showSuccessModal.value = false
-  router.push('/')
+  router.push(isEditMode.value ? '/article-management' : '/')
 }
 </script>
 
@@ -117,8 +148,8 @@ const handleCloseModal = () => {
   <div class="post-article-container">
     <div class="form-card">
       <div class="form-header">
-        <h2 class="form-title">发布技术文章</h2>
-        <p class="form-subtitle">分享您的技术见解与研究成果</p>
+        <h2 class="form-title">{{ isEditMode ? '编辑技术文章' : '发布技术文章' }}</h2>
+        <p class="form-subtitle">{{ isEditMode ? '修改并完善您的技术成果' : '分享您的技术见解与研究成果' }}</p>
       </div>
 
       <div class="article-form">
@@ -177,7 +208,7 @@ const handleCloseModal = () => {
             :disabled="loading" 
             @click="handleSubmit"
           >
-            {{ loading ? '发布中...' : '立即发布' }}
+            {{ loading ? (isEditMode ? '保存中...' : '发布中...') : (isEditMode ? '保存修改' : '立即发布') }}
           </button>
         </div>
       </div>
@@ -195,8 +226,8 @@ const handleCloseModal = () => {
           <d-icon name="right" size="40px" color="#fff" />
         </div>
         <div class="text-content">
-          <h3>发布成功</h3>
-          <p>您的文章已成功发布，正等待审核通过后展示。</p>
+          <h3>{{ isEditMode ? '修改成功' : '发布成功' }}</h3>
+          <p>{{ isEditMode ? '您的文章已成功更新，并进入审核队列。' : '您的文章已成功发布，正等待审核通过后展示。' }}</p>
         </div>
         <div class="modal-actions">
           <d-button bs-style="primary" class="btn-confirm" @click="handleCloseModal">确 定</d-button>

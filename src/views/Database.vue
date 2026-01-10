@@ -203,6 +203,10 @@ const viewDetail = (row: ReportItem) => {
   router.push(`/database/detail/${row.id}`);
 };
 
+const editDetail = (row: ReportItem) => {
+  router.push(`/submit/${row.id}`);
+};
+
 
 
 const deleteItem = async (row: ReportItem) => {
@@ -243,19 +247,14 @@ const getSeverityText = (severity: string | undefined): string => {
   const severityNormalized = severity.charAt(0).toUpperCase() + severity.slice(1).toLowerCase();
   
   const textMap: Record<string, string> = {
-    'Critical': '严重',
-    'High': '高危',
-    'Medium': '中危',
-    'Low': '低危',
-    // 如果已经是中文，直接返回
-    '高危': '高危',
-    '严重': '严重',
-    '中危': '中危',
-    '低危': '低危',
-    '无危害': '无危害',
+    '1': '严重', 'Critical': '严重', '严重': '严重',
+    '2': '高危', 'High': '高危', '高危': '高危',
+    '3': '中危', 'Medium': '中危', '中危': '中危',
+    '4': '低危', 'Low': '低危', '低危': '低危',
+    '无危害': '无危害'
   };
   
-  return textMap[severityNormalized] || textMap[severity] || severity;
+  return textMap[severityNormalized] || textMap[String(severity)] || severity;
 };
 
 const getSeverityColor = (severity: string | undefined) => {
@@ -436,6 +435,14 @@ onMounted(async () => {
                   <button class="action-btn view-btn" title="查看" @click="viewDetail(row)">
                     <d-icon name="preview" size="16px" />
                   </button>
+                  <button 
+                    v-if="getStatusClass(row.status) === 'pending'"
+                    class="action-btn edit-btn" 
+                    title="编辑" 
+                    @click="editDetail(row)"
+                  >
+                    <d-icon name="edit" size="16px" />
+                  </button>
                   <button class="action-btn delete-btn" title="删除" @click="deleteItem(row)">
                     <d-icon name="delete" size="16px" />
                   </button>
@@ -496,6 +503,13 @@ onMounted(async () => {
                 <div class="row-actions">
                   <button class="action-btn view-btn" @click.stop="viewDetail(row)">
                     <d-icon name="preview" size="16px" />
+                  </button>
+                  <button 
+                    v-if="getStatusClass(row.status) === 'pending'"
+                    class="action-btn edit-btn" 
+                    @click.stop="editDetail(row)"
+                  >
+                    <d-icon name="edit" size="16px" />
                   </button>
                   <button class="action-btn delete-btn" @click.stop="deleteItem(row)">
                     <d-icon name="delete" size="16px" />

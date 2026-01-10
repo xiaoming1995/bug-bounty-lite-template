@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Header from './Public/Header.vue'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+import { Message } from 'vue-devui'
 
 const route = useRoute()
 const router = useRouter()
@@ -130,13 +133,13 @@ const goBack = () => {
 // 获取危险等级的样式类
 const getLevelClass = (level: string) => {
   const levelMap: Record<string, string> = {
-    '严重': 'critical',
-    '高危': 'high',
-    '中危': 'medium',
-    '低危': 'low',
+    '1': 'critical', '严重': 'critical',
+    '2': 'high', '高危': 'high',
+    '3': 'medium', '中危': 'medium',
+    '4': 'low', '低危': 'low',
     '无危害': 'info'
   }
-  return levelMap[level] || 'info'
+  return levelMap[String(level)] || levelMap[level] || 'info'
 }
 
 // 获取状态样式类
@@ -148,6 +151,76 @@ const getStatusClass = (status: string) => {
     '已关闭': 'closed'
   }
   return statusMap[status] || 'pending'
+}
+
+const newComment = ref('')
+const submitLoading = ref(false)
+
+// 提交新留言
+const submitComment = async () => {
+  if (!newComment.value.trim()) {
+    return
+  }
+  
+  submitLoading.value = true
+  try {
+    // 模拟数据提交过程
+    await new Promise(resolve => setTimeout(resolve, 800))
+    
+    // 向列表添加新留言
+    vulnerabilityDetail.value.comments.push({
+      id: Date.now(),
+      author: '当前用户', // 实际开发中根据登录身份决定
+      time: new Date().toLocaleString(),
+      content: newComment.value.trim()
+    })
+    
+    newComment.value = ''
+  } catch (error) {
+    console.error('提交留言失败:', error)
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+const exporting = ref(false)
+
+// 导出为PDF
+const exportToPDF = async () => {
+  if (exporting.value) return
+  
+  const element = document.getElementById('vulnerability-detail-content')
+  if (!element) {
+    Message.error('无法找到导出内容')
+    return
+  }
+  
+  exporting.value = true
+  try {
+    // 设置导出时的样式优化（可选）
+    const canvas = await html2canvas(element, {
+      scale: 2, // 提高清晰度
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff'
+    })
+    
+    const imgData = canvas.toDataURL('image/png')
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const imgProps = pdf.getImageProperties(imgData)
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+    
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+    pdf.save(`${vulnerabilityDetail.value.title || '漏洞详情'}.pdf`)
+    
+    Message.success('导出成功')
+  } catch (error) {
+    console.error('导出PDF失败:', error)
+    Message.error('导出PDF失败，请重试')
+  } finally {
+    exporting.value = false
+  }
 }
 
 onMounted(() => {
@@ -171,8 +244,13 @@ onMounted(() => {
         </d-button>
         
         <div class="header-actions">
-          <d-button bs-style="outline">编辑</d-button>
-          <d-button bs-style="primary">导出</d-button>
+          <d-button 
+            bs-style="primary" 
+            @click="exportToPDF"
+            :loading="exporting"
+          >
+            导出 PDF
+          </d-button>
         </div>
       </div>
 
@@ -183,7 +261,7 @@ onMounted(() => {
       </div>
 
       <!-- 漏洞详情内容 -->
-      <div v-else class="detail-body">
+      <div v-else id="vulnerability-detail-content" class="detail-body">
         <!-- 基本信息卡片 -->
         <div class="info-card">
           <h1 class="vulnerability-title">{{ vulnerabilityDetail.title }}</h1>
@@ -261,20 +339,67 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 评论区域 -->
-        <div class="content-card">
-          <h3>处理记录</h3>
-          <div class="comments-list">
+        <!-- 评论区域/审核互动 (时间轴重构) -->
+        <div class="content-card comment-section">
+          <div class="section-title">
+            <h3>处理记录与审核沟通</h3>
+            <span class="count-tag">{{ vulnerabilityDetail.comments.length }} 条记录</span>
+          </div>
+          
+          <!-- 时间轴列表 -->
+          <div class="timeline-wrapper">
             <div 
-              v-for="comment in vulnerabilityDetail.comments" 
+              v-for="(comment, index) in vulnerabilityDetail.comments" 
               :key="comment.id"
-              class="comment-item"
+              :class="['timeline-item', comment.author === '安全团队' || comment.author === '开发团队' ? 'official' : 'researcher']"
             >
-              <div class="comment-header">
-                <span class="comment-author">{{ comment.author }}</span>
-                <span class="comment-time">{{ comment.time }}</span>
+              <div class="timeline-dot"></div>
+              <div class="timeline-content">
+                <div class="comment-metadata">
+                  <span class="author-tag">
+                    <d-icon :name="comment.author === '安全团队' ? 'manager' : 'user'" size="14px" />
+                    {{ comment.author }}
+                  </span>
+                  <span class="time-stamp">{{ comment.time }}</span>
+                </div>
+                <div class="comment-body">
+                  {{ comment.content }}
+                </div>
               </div>
-              <p class="comment-content">{{ comment.content }}</p>
+            </div>
+            
+            <div v-if="vulnerabilityDetail.comments.length === 0" class="empty-timeline">
+              <d-icon name="info" size="24px" />
+              <p>暂无处理记录，管理员审核后将在此留言</p>
+            </div>
+          </div>
+
+          <!-- 发送留言 (时间轴末端) -->
+          <div class="reply-area">
+            <div class="reply-container">
+              <div class="user-avatar-small">
+                <d-icon name="user" size="20px" />
+              </div>
+              <div class="input-wrapper">
+                <d-textarea
+                  v-model="newComment"
+                  placeholder="针对审核问题进行沟通或回复..."
+                  :rows="2"
+                  class="modern-input"
+                />
+                <div class="action-bar">
+                  <span class="tip-text">按回车快捷发送</span>
+                  <d-button 
+                    bs-style="primary" 
+                    @click="submitComment"
+                    :loading="submitLoading"
+                    :disabled="!newComment.trim()"
+                    class="send-btn"
+                  >
+                    发布留言
+                  </d-button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -494,38 +619,204 @@ onMounted(() => {
   }
 }
 
-.comments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.comment-section {
+  padding: 32px !important;
 
-  .comment-item {
-    padding: 16px;
-    background: #f8f9fa;
-    border-radius: 4px;
-    border-left: 4px solid #5e7ce0;
-
-    .comment-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-
-      .comment-author {
-        font-weight: 500;
-        color: #333;
-      }
-
-      .comment-time {
-        font-size: 12px;
-        color: #999;
+  .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    
+    h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a3353;
+      position: relative;
+      padding-left: 12px;
+      
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 18px;
+        background: #3b82f6;
+        border-radius: 2px;
       }
     }
 
-    .comment-content {
-      margin: 0;
-      line-height: 1.5;
-      color: #666;
+    .count-tag {
+      font-size: 13px;
+      color: #94a3b8;
+      background: #f1f5f9;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+  }
+}
+
+.timeline-wrapper {
+  padding-left: 20px;
+  position: relative;
+  margin-bottom: 40px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e2e8f0;
+  }
+
+  .timeline-item {
+    position: relative;
+    padding-bottom: 32px;
+    
+    &:last-child {
+      padding-bottom: 0;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: -20px;
+      top: 6px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      border: 2px solid #fff;
+      z-index: 1;
+      box-shadow: 0 0 0 2px #f8fafc;
+    }
+
+    &.official {
+      .timeline-dot { background: #3b82f6; }
+      .author-tag { color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
+    }
+
+    &.researcher {
+      .timeline-dot { background: #10b981; }
+      .author-tag { color: #10b981; background: rgba(16, 185, 129, 0.08); }
+    }
+
+    .timeline-content {
+      background: #fcfdfe;
+      border: 1px solid #f1f5f9;
+      padding: 16px;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: #e2e8f0;
+        box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+      }
+
+      .comment-metadata {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+
+        .author-tag {
+          font-size: 13px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .time-stamp {
+          font-size: 12px;
+          color: #94a3b8;
+        }
+      }
+
+      .comment-body {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #475569;
+        word-wrap: break-word;
+      }
+    }
+  }
+
+  .empty-timeline {
+    text-align: center;
+    padding: 48px;
+    color: #94a3b8;
+    
+    .devui-icon { margin-bottom: 12px; opacity: 0.5; }
+    p { font-size: 14px; margin: 0; }
+  }
+}
+
+.reply-area {
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #f1f5f9;
+
+  .reply-container {
+    display: flex;
+    gap: 16px;
+
+    .user-avatar-small {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      flex-shrink: 0;
+    }
+
+    .input-wrapper {
+      flex: 1;
+
+      .modern-input {
+        :deep(.devui-textarea) {
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 12px !important;
+          padding: 12px !important;
+          transition: all 0.3s ease !important;
+          background: #fff !important;
+          
+          &:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+          }
+        }
+      }
+
+      .action-bar {
+        margin-top: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .tip-text {
+          font-size: 12px;
+          color: #94a3b8;
+        }
+
+        .send-btn {
+          border-radius: 10px !important;
+          padding: 0 24px !important;
+          height: 36px !important;
+          font-weight: 600 !important;
+        }
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
 import { get, post, upload } from '../utils/request'
@@ -19,11 +19,31 @@ const formData = reactive({
   attachments: [] as File[]
 })
 
+// 定义漏洞报告接口类型
+interface ReportItem {
+  id: number
+  project_id: number
+  vulnerability_name: string
+  vulnerability_type_id: number
+  vulnerability_impact: string
+  severity_level_id: number
+  vulnerability_url: string
+  vulnerability_detail: string
+  created_at: string
+  updated_at: string
+}
+
+
 // 响应式状态
 const loading = ref(false)
 const agreeTerms = ref(false)
 const projectLoading = ref(false)
 const router = useRouter()
+const route = useRoute()
+
+// 编辑模式相关
+const editId = computed(() => route.params.id ? Number(route.params.id) : null)
+const isEditMode = computed(() => !!editId.value)
 
 // 项目名称选项（动态加载）
 const projectNameOptions = ref<Array<{ name: string; value: number | null }>>([
@@ -95,6 +115,32 @@ const loadProjects = async () => {
     handleProjectLoadFailed()
   } finally {
     projectLoading.value = false
+  }
+}
+// 加载漏洞详情 (编辑模式)
+const loadReportDetail = async (id: number) => {
+  loading.value = true
+  try {
+    const response = await get<any>(REPORT_API.DETAIL(id))
+    // 兼容可能存在的 data 包裹
+    const data = response?.data || response
+    if (data) {
+      formData.project_id = data.project_id ? Number(data.project_id) : null
+      formData.vulnerabilityName = data.vulnerability_name || ''
+      formData.vulnerabilityType = data.vulnerability_type_id ? Number(data.vulnerability_type_id) : null
+      formData.terminationReason = data.vulnerability_impact || ''
+      formData.riskLevel = data.self_assessment_id ? Number(data.self_assessment_id) : (data.self_assessment?.id ? Number(data.self_assessment.id) : null)
+      formData.vulnerabilityLink = data.vulnerability_url || ''
+      formData.vulnerabilityDetails = data.vulnerability_detail || ''
+      
+      // 强制触发一次同步，确保 radio-group 状态刷新
+      await nextTick()
+    }
+  } catch (error) {
+    console.error('加载漏洞详情失败:', error)
+    Message.error('加载漏洞详情失败')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -263,10 +309,12 @@ const handleSubmit = async () => {
       vulnerability_detail: formData.vulnerabilityDetails
     }
 
-    // 如果有危害自评，添加 severity_level_id 字段（可选，确保为 number 类型）
+    // 如果有危害自评，添加 self_assessment_id 字段（可选，确保为 number 类型）
     if (formData.riskLevel !== null && formData.riskLevel !== undefined) {
-      submitData.severity_level_id = Number(formData.riskLevel)
+      submitData.self_assessment_id = Number(formData.riskLevel)
     }
+
+    const apiUrl = isEditMode.value ? REPORT_API.UPDATE(editId.value!) : REPORT_API.CREATE
 
     // 如果有附件，使用 FormData；否则使用 JSON
     if (formData.attachments && formData.attachments.length > 0) {
@@ -276,12 +324,7 @@ const handleSubmit = async () => {
       Object.keys(submitData).forEach(key => {
         const value = submitData[key]
         if (value !== null && value !== undefined) {
-          // 对于数字类型字段，确保提交为数字字符串
-          if (typeof value === 'number') {
-            formDataToSubmit.append(key, String(value))
-          } else {
-            formDataToSubmit.append(key, String(value))
-          }
+          formDataToSubmit.append(key, String(value))
         }
       })
       
@@ -291,10 +334,10 @@ const handleSubmit = async () => {
       })
 
       // 使用 upload 方法提交 FormData
-      await upload(REPORT_API.CREATE, formDataToSubmit)
+      await upload(apiUrl, formDataToSubmit)
     } else {
-      // 没有附件，使用 JSON 格式提交（确保数字类型正确）
-      await post(REPORT_API.CREATE, submitData)
+      // 没有附件，使用 JSON 格式提交
+      await post(apiUrl, submitData)
     }
 
     // 成功处理
@@ -394,11 +437,18 @@ const hideErrorMessages = () => {
 // 监听 DOM 变化，自动隐藏错误提示
 let observer: MutationObserver | null = null
 
-onMounted(() => {
-  // 加载项目列表、漏洞类型和风险等级
-  loadProjects()
-  loadVulnerabilityTypes()
-  loadSeverityLevels()
+onMounted(async () => {
+  // 并行加载所有基础配置
+  await Promise.all([
+    loadProjects(),
+    loadVulnerabilityTypes(),
+    loadSeverityLevels()
+  ])
+
+  // 配置加载完成后，如果是编辑模式，再加载详情进行回显
+  if (editId.value) {
+    loadReportDetail(editId.value)
+  }
   
   // 初始隐藏
   hideErrorMessages()
@@ -447,10 +497,10 @@ onUnmounted(() => {
   <div class="submit-container">
     <div class="page-header">
       <h1 class="page-title">
-        <d-icon name="edit" /> <!-- using edit icon for submission -->
-        提交漏洞
+        <d-icon :name="isEditMode ? 'edit' : 'edit'" /> <!-- using edit icon for submission -->
+        {{ isEditMode ? '编辑漏洞报告' : '提交漏洞' }}
       </h1>
-      <p class="page-desc">欢迎提交安全漏洞报告，共同守护网络安全</p>
+      <p class="page-desc">{{ isEditMode ? '修改并完善您的安全漏洞报告' : '欢迎提交安全漏洞报告，共同守护网络安全' }}</p>
     </div>
 
     <div class="main-content">
@@ -538,7 +588,12 @@ onUnmounted(() => {
             <template v-else-if="riskLevelLoadFailed">
               <span class="error-text">加载失败，请刷新页面</span>
             </template>
-            <d-radio-group v-else v-model="formData.riskLevel" direction="horizontal">
+            <d-radio-group 
+              v-else 
+              v-if="riskLevelOptions.length > 0" 
+              v-model="formData.riskLevel" 
+              direction="horizontal"
+            >
               <d-radio
                 v-for="option in riskLevelOptions"
                 :key="option.value"
@@ -621,7 +676,7 @@ onUnmounted(() => {
               size="lg"
               class="submit-button"
             >
-              提交报告
+              {{ isEditMode ? '保存修改' : '提交报告' }}
             </d-button>
           </div>
         </d-form>
@@ -642,8 +697,8 @@ onUnmounted(() => {
           <d-icon name="right" size="36px" color="#fff" />
         </div>
         <div class="text-content">
-          <h3>漏洞提交成功</h3>
-          <p>感谢您的贡献！我们将会尽快处理您的报告，您可以在记录页面查看处理进度。</p>
+          <h3>{{ isEditMode ? '漏洞修改成功' : '漏洞提交成功' }}</h3>
+          <p>{{ isEditMode ? '您的报告已更新，我们将重新审核您的反馈。' : '感谢您的贡献！我们将会尽快处理您的报告，您可以在记录页面查看处理进度。' }}</p>
         </div>
       </div>
       <template #footer>

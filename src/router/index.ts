@@ -67,12 +67,12 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/submit',
+    path: '/submit/:id?',
     name: 'submit',
     component: () => import('@/views/Submit.vue'),
     meta: {
       title: '提交漏洞',
-      requiresAuth: true  // 需要登录
+      requiresAuth: true
     }
   },
   {
@@ -130,16 +130,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/security-dashboard',
-    name: 'security-dashboard',
-    component: () => import('@/views/SecurityDashboard.vue'),
+    path: '/article-management',
+    name: 'article-management',
+    component: () => import('@/views/ArticleManagement.vue'),
     meta: {
-      title: '安全态势大屏',
+      title: '文章管理',
       requiresAuth: true
     }
   },
   {
-    path: '/post-article',
+    path: '/post-article/:id?',
     name: 'post-article',
     component: () => import('@/views/PostArticle.vue'),
     meta: {

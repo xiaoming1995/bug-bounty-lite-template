@@ -188,7 +188,7 @@ onMounted(fetchVulnerabilities)
 <template>
   <Header />
   
-  <div class="security-dashboard">
+  <div class="dashboard-container">
     <div class="dashboard-content">
     <!-- 统计卡片 -->
     <div class="stats-row">
@@ -491,14 +491,13 @@ onMounted(fetchVulnerabilities)
 </template>
 
 <style scoped lang="scss">
-.security-dashboard {
+.dashboard-container {
   padding: 24px 32px;
   background-color: #f8fafc;
   min-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  overflow: hidden;
 }
 
 .dashboard-content {
@@ -1001,10 +1000,7 @@ onMounted(fetchVulnerabilities)
       text-align: center;
     }
     
-    // 当项目多时，只显示部分标签
-    &:nth-child(2n) .bar-label {
-      // 偶数项在紧凑模式下隐藏
-    }
+
   }
   
   .trend-footer {
@@ -1063,7 +1059,7 @@ onMounted(fetchVulnerabilities)
       gap: 12px;
       
       .icon-box {
-        display: none; // 隐藏图标框
+        display: flex;
       }
       
       .title {
@@ -1074,7 +1070,7 @@ onMounted(fetchVulnerabilities)
       }
       
       .badge {
-        display: none; // 隐藏数量徽章
+        display: inline-flex;
       }
     }
     
@@ -1216,7 +1212,7 @@ onMounted(fetchVulnerabilities)
 }
 
 @media (max-width: 1024px) {
-  .security-dashboard {
+  .dashboard-container {
     height: auto;
     overflow: visible;
   }

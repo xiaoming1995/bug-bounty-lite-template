@@ -12,7 +12,7 @@ watch(() => route.path, (path) => {
   else if (path.startsWith('/database')) activeKey.value = 'database'
 
   else if (path.startsWith('/ranking')) activeKey.value = 'ranking'
-  else if (path.startsWith('/security-dashboard')) activeKey.value = 'security-dashboard'
+  else if (path.startsWith('/article-management')) activeKey.value = 'article-management'
   else activeKey.value = ''
 }, { immediate: true })
 const mobileMenuVisible = ref(false)
@@ -70,9 +70,6 @@ const handleMenuClick = async (itemId: string) => {
       break
     case 'ranking':
       router.push('/ranking')
-      break
-    case 'security-dashboard':
-      router.push('/security-dashboard')
       break
     case 'logout':
       await handleLogout()
@@ -173,9 +170,9 @@ const handlePostArticle = () => {
           <d-icon name="trophy" class="nav-icon" />
           <span>排行榜</span>
         </router-link>
-        <router-link to="/security-dashboard" class="nav-item" active-class="active">
-          <d-icon name="monitor" class="nav-icon" />
-          <span>数据屏幕</span>
+        <router-link to="/article-management" class="nav-item" active-class="active">
+          <d-icon name="group-report" class="nav-icon" />
+          <span>文章管理</span>
         </router-link>
       </nav>
     </div>
@@ -250,9 +247,9 @@ const handlePostArticle = () => {
           <d-icon name="trophy" />
           <span>排行榜</span>
         </router-link>
-        <router-link to="/security-dashboard" class="mobile-nav-item" @click="closeMobileMenu">
-          <d-icon name="monitor" />
-          <span>态势大屏</span>
+        <router-link to="/article-management" class="mobile-nav-item" @click="closeMobileMenu">
+          <d-icon name="group-report" />
+          <span>文章管理</span>
         </router-link>
       </nav>
     </div>

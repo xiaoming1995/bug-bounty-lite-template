@@ -52,6 +52,7 @@ export const REPORT_API = {
   LIST: '/v1/reports',
   DETAIL: (id: string | number) => `/v1/reports/${id}`,
   CREATE: '/v1/reports',
+  UPDATE: (id: string | number) => `/v1/reports/${id}`,
   WEEKLY: '/reports/weekly',
   MONTHLY: '/reports/monthly'
 }

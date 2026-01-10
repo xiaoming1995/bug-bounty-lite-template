@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Header from './Public/Header.vue'
 
@@ -45,6 +45,88 @@ const comments = ref<Comment[]>([
 // 新评论内容
 const newComment = ref('')
 const submittingComment = ref(false)
+
+// 文章列表（同步 Mock 数据）
+const articleList = ref([
+  {
+    id: 1,
+    title: 'Web安全入门：SQL注入攻击原理与防护',
+    description: '本文详细介绍SQL注入的基本原理、常见攻击手法以及有效的防护措施，帮助开发者构建更安全的Web应用。',
+    author: '安全小白',
+    views: 3256,
+    publishDate: '2026-01-05',
+    category: 'Web安全',
+    hot: true
+  },
+  {
+    id: 2,
+    title: 'XSS跨站脚本攻击全解析',
+    description: '深入浅出讲解反射型、存储型、DOM型XSS的区别与利用方式，以及CSP等现代防护技术。',
+    author: '渗透达人',
+    views: 2891,
+    publishDate: '2026-01-04',
+    category: 'Web安全',
+    featured: true
+  },
+  {
+    id: 3,
+    title: 'Burp Suite实战技巧分享',
+    description: '从安装配置到高级用法，手把手教你使用Web安全测试神器Burp Suite进行渗透测试。',
+    author: '工具专家',
+    views: 4512,
+    publishDate: '2026-01-03',
+    category: '工具教程',
+    hot: true,
+    featured: true
+  },
+  {
+    id: 4,
+    title: '企业安全体系建设指南',
+    description: '结合实际案例，探讨如何从零开始构建企业级安全防护体系，包括组织架构、流程规范等。',
+    author: '安全架构师',
+    views: 1876,
+    publishDate: '2026-01-02',
+    category: '安全管理'
+  },
+  {
+    id: 5,
+    title: 'CTF入门：从零开始的夺旗之旅',
+    description: '为CTF新手准备的入门指南，涵盖Web、Crypto、Pwn等方向的基础知识和练习平台推荐。',
+    author: 'CTF爱好者',
+    views: 5234,
+    publishDate: '2026-01-01',
+    category: 'CTF',
+    featured: true
+  }
+])
+
+// 热门推荐
+const hotArticles = computed(() => {
+  return articleList.value.filter(a => a.hot && a.id !== article.value?.id).slice(0, 3)
+})
+
+// 精选推荐
+const featuredArticles = computed(() => {
+  return articleList.value.filter(a => a.featured && a.id !== article.value?.id).slice(0, 3)
+})
+
+// 查看文章详情
+const viewArticle = (id: number) => {
+  router.push(`/learning-center/${id}`)
+  loadArticle(id.toString())
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// 格式化浏览量
+const formatViews = (views: number) => {
+  if (views >= 10000) {
+    return (views / 10000).toFixed(1) + 'w'
+  }
+  if (views >= 1000) {
+    return (views / 1000).toFixed(1) + 'k'
+  }
+  return views.toString()
+}
 
 // 加载文章详情
 const loadArticle = async (id: string) => {
@@ -207,86 +289,131 @@ onMounted(() => {
 
       <!-- 文章详情 -->
       <template v-else-if="article">
-        <article class="article-container">
-          <!-- 文章头部 -->
-          <header class="article-header">
-            <span class="category">{{ article.category }}</span>
-            <h1 class="article-title">{{ article.title }}</h1>
-            <div class="article-meta">
-              <div class="author-info">
-                <div class="author-avatar">
-                  <d-icon name="user" size="16px" />
+        <div class="main-layout">
+          <!-- 左侧内容 -->
+          <div class="article-section">
+            <article class="article-container">
+              <!-- 文章头部 -->
+              <header class="article-header">
+                <span class="category">{{ article.category }}</span>
+                <h1 class="article-title">{{ article.title }}</h1>
+                <div class="article-meta">
+                  <div class="author-info">
+                    <div class="author-avatar">
+                      <d-icon name="user" size="16px" />
+                    </div>
+                    <span class="author-name">{{ article.author }}</span>
+                  </div>
+                  <span class="divider">·</span>
+                  <span class="date">{{ formatDate(article.publishDate) }}</span>
+                  <span class="divider">·</span>
+                  <span class="views">
+                    <d-icon name="preview" />
+                    {{ formatNumber(article.views) }} 阅读
+                  </span>
                 </div>
-                <span class="author-name">{{ article.author }}</span>
+              </header>
+
+              <!-- 文章内容 -->
+              <div class="article-content" v-html="article.content.replace(/\n/g, '<br>')"></div>
+
+              <!-- 互动区域 -->
+              <div class="interaction-bar">
+                <button class="like-btn" :class="{ liked }" @click="toggleLike">
+                  <svg v-if="!liked" class="like-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                  </svg>
+                  <svg v-else class="like-icon filled" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                  </svg>
+                  <span>{{ liked ? '已点赞' : '点赞' }}</span>
+                  <span class="like-count">{{ formatNumber(article.likes) }}</span>
+                </button>
+                <span class="comment-count">
+                  <d-icon name="message" />
+                  {{ comments.length }} 评论
+                </span>
               </div>
-              <span class="divider">·</span>
-              <span class="date">{{ formatDate(article.publishDate) }}</span>
-              <span class="divider">·</span>
-              <span class="views">
-                <d-icon name="preview" />
-                {{ formatNumber(article.views) }} 阅读
-              </span>
-            </div>
-          </header>
+            </article>
 
-          <!-- 文章内容 -->
-          <div class="article-content" v-html="article.content.replace(/\n/g, '<br>')"></div>
-
-          <!-- 互动区域 -->
-          <div class="interaction-bar">
-            <button class="like-btn" :class="{ liked }" @click="toggleLike">
-              <svg v-if="!liked" class="like-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-              <svg v-else class="like-icon filled" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-              <span>{{ liked ? '已点赞' : '点赞' }}</span>
-              <span class="like-count">{{ formatNumber(article.likes) }}</span>
-            </button>
-            <span class="comment-count">
-              <d-icon name="message" />
-              {{ comments.length }} 评论
-            </span>
-          </div>
-        </article>
-
-        <!-- 评论区 -->
-        <section class="comments-section">
-          <h3 class="section-title">评论 ({{ comments.length }})</h3>
-          
-          <!-- 发表评论 -->
-          <div class="comment-form">
-            <textarea 
-              v-model="newComment"
-              placeholder="写下你的评论..."
-              rows="3"
-            ></textarea>
-            <button 
-              class="submit-btn" 
-              :disabled="!newComment.trim() || submittingComment"
-              @click="submitComment"
-            >
-              {{ submittingComment ? '发布中...' : '发表评论' }}
-            </button>
-          </div>
-
-          <!-- 评论列表 -->
-          <div class="comments-list">
-            <div v-for="comment in comments" :key="comment.id" class="comment-item">
-              <div class="comment-avatar">
-                <d-icon name="user" size="16px" />
+            <!-- 评论区 -->
+            <section class="comments-section">
+              <h3 class="section-title">评论 ({{ comments.length }})</h3>
+              <!-- 发表评论 -->
+              <div class="comment-form">
+                <textarea 
+                  v-model="newComment"
+                  placeholder="写下你的评论..."
+                  rows="3"
+                ></textarea>
+                <button 
+                  class="submit-btn" 
+                  :disabled="!newComment.trim() || submittingComment"
+                  @click="submitComment"
+                >
+                  {{ submittingComment ? '发布中...' : '发表评论' }}
+                </button>
               </div>
-              <div class="comment-body">
-                <div class="comment-header">
-                  <span class="comment-author">{{ comment.author }}</span>
-                  <span class="comment-date">{{ formatDate(comment.date) }}</span>
+
+              <!-- 评论列表 -->
+              <div class="comments-list">
+                <div v-for="comment in comments" :key="comment.id" class="comment-item">
+                  <div class="comment-avatar">
+                    <d-icon name="user" size="16px" />
+                  </div>
+                  <div class="comment-body">
+                    <div class="comment-header">
+                      <span class="comment-author">{{ comment.author }}</span>
+                      <span class="comment-date">{{ formatDate(comment.date) }}</span>
+                    </div>
+                    <p class="comment-content">{{ comment.content }}</p>
+                  </div>
                 </div>
-                <p class="comment-content">{{ comment.content }}</p>
+              </div>
+            </section>
+          </div>
+
+          <!-- 右侧推荐栏 -->
+          <div class="sidebar">
+            <!-- 热门推荐 -->
+            <div class="sidebar-card">
+              <h4 class="sidebar-title">
+                <d-icon name="fire" />
+                <span>热门推荐</span>
+              </h4>
+              <div class="recommend-list">
+                <div 
+                  v-for="(item, idx) in hotArticles" 
+                  :key="item.id"
+                  class="recommend-item"
+                  @click="viewArticle(item.id)"
+                >
+                  <span class="rank" :class="'rank-' + (idx + 1)">{{ idx + 1 }}</span>
+                  <span class="title">{{ item.title }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 精选推荐 -->
+            <div class="sidebar-card">
+              <h4 class="sidebar-title">
+                <d-icon name="star" />
+                <span>精选推荐</span>
+              </h4>
+              <div class="recommend-list">
+                <div 
+                  v-for="item in featuredArticles" 
+                  :key="item.id"
+                  class="recommend-item featured"
+                  @click="viewArticle(item.id)"
+                >
+                  <span class="title">{{ item.title }}</span>
+                  <span class="views">{{ formatViews(item.views) }} 阅读</span>
+                </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
       </template>
     </div>
   </div>
@@ -300,9 +427,9 @@ onMounted(() => {
 }
 
 .page-content {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 32px 24px;
 }
 
 .back-nav {
@@ -352,6 +479,107 @@ onMounted(() => {
   padding: 40px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
   margin-bottom: 24px;
+}
+
+.main-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sidebar-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.recommend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recommend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: #f8fafc;
+  }
+  
+  .rank {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+    background: #f1f5f9;
+    color: #64748b;
+    
+    &.rank-1 {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #fff;
+    }
+    
+    &.rank-2 {
+      background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+      color: #fff;
+    }
+    
+    &.rank-3 {
+      background: linear-gradient(135deg, #cd7f32 0%, #b87333 100%);
+      color: #fff;
+    }
+  }
+  
+  .title {
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.5;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  &.featured {
+    flex-direction: column;
+    gap: 6px;
+    
+    .views {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+  }
 }
 
 .article-header {
@@ -691,13 +919,23 @@ onMounted(() => {
   }
 }
 
+@media (max-width: 1000px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .sidebar {
+    display: none; // 在极小屏幕下隐藏推荐位以保证正文阅读体验
+  }
+}
+
 @media (max-width: 600px) {
   .page-content {
     padding: 16px;
   }
   
   .article-container {
-    padding: 24px;
+    padding: 20px;
   }
   
   .article-title {
