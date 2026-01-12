@@ -14,7 +14,7 @@ export const AUTH_API = {
   REFRESH_TOKEN: '/auth/refresh',
   FORGOT_PASSWORD: '/auth/forgot-password',
   RESET_PASSWORD: '/auth/reset-password',
-  GET_USER_INFO: '/auth/user'
+  GET_USER_INFO: '/v1/user/profile'
 }
 
 // 漏洞相关 API

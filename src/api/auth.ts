@@ -94,6 +94,27 @@ export const getUserInfo = async (): Promise<UserInfo> => {
 }
 
 /**
+ * 更新用户资料
+ */
+export interface UpdateProfileData {
+  name?: string
+  bio?: string
+  phone?: string
+  email?: string
+}
+
+export const updateProfile = async (data: UpdateProfileData): Promise<void> => {
+  return await post('/v1/user/profile', data)
+}
+
+/**
+ * 修改密码
+ */
+export const changePassword = async (oldPassword: string, newPassword: string): Promise<void> => {
+  return await post('/v1/user/change-password', { oldPassword, newPassword })
+}
+
+/**
  * 忘记密码
  */
 export const forgotPassword = async (email: string): Promise<void> => {

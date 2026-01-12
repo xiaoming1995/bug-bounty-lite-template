@@ -1,28 +1,27 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import Header from './Public/Header.vue'
+import { getUserInfo } from '@/api/auth'
 
 // 用户信息数据
 const userInfo = reactive({
   avatar: '',
-  username: '安全研究员',
-  email: 'security@example.com',
-  phone: '138****8888',
-  department: '安全研究部',
-  position: '高级安全工程师',
-  lastLogin: '2024-01-20 14:30:25',
+  name: '',
+  email: '',
+  phone: '',
+  department: '',  // 从 org.name 获取
+  lastLogin: '',
   status: '在线',
-  bio: '专注于Web安全研究5年，擅长漏洞挖掘与渗透测试。曾发现多个高危漏洞，获得多家知名企业致谢。热爱技术分享，致力于推动安全社区发展。'
+  bio: ''
 })
 
 // 表单数据
 const formData = reactive({
-  username: userInfo.username,
-  email: userInfo.email,
-  phone: userInfo.phone,
-  department: userInfo.department,
-  position: userInfo.position,
-  bio: userInfo.bio
+  name: '',
+  email: '',
+  phone: '',
+  department: '',
+  bio: ''
 })
 
 // 密码修改表单
@@ -37,6 +36,23 @@ const loading = ref(false)
 const editMode = ref(false)
 const showPasswordModal = ref(false)
 const avatarUploadRef = ref()
+
+// Toast 提示状态
+const toast = reactive({
+  visible: false,
+  message: '',
+  type: 'success' as 'success' | 'error' | 'warning'
+})
+
+// 显示 Toast 提示
+const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+  toast.message = message
+  toast.type = type
+  toast.visible = true
+  setTimeout(() => {
+    toast.visible = false
+  }, 3000)
+}
 
 // 统计数据
 const userStats = ref([
@@ -129,11 +145,10 @@ const handleEdit = () => {
 const handleCancel = () => {
   editMode.value = false
   Object.assign(formData, {
-    username: userInfo.username,
+    name: userInfo.name,
     email: userInfo.email,
     phone: userInfo.phone,
     department: userInfo.department,
-    position: userInfo.position,
     bio: userInfo.bio
   })
 }
@@ -141,12 +156,27 @@ const handleCancel = () => {
 const handleSave = async () => {
   loading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    Object.assign(userInfo, formData)
+    // 调用后端 API 更新用户资料
+    const { updateProfile } = await import('@/api/auth')
+    await updateProfile({
+      name: formData.name,
+      bio: formData.bio,
+      phone: formData.phone,
+      email: formData.email
+    })
+    
+    // 更新本地数据
+    Object.assign(userInfo, {
+      name: formData.name,
+      bio: formData.bio,
+      phone: formData.phone,
+      email: formData.email
+    })
     editMode.value = false
-    console.log('用户信息更新成功')
-  } catch (error) {
+    showToast('个人信息更新成功！', 'success')
+  } catch (error: any) {
     console.error('更新失败:', error)
+    showToast('更新失败：' + (error.message || '请稍后重试'), 'error')
   } finally {
     loading.value = false
   }
@@ -172,35 +202,85 @@ const handlePasswordChange = () => {
 }
 
 const submitPasswordChange = async () => {
+  if (!passwordForm.oldPassword) {
+    showToast('请输入当前密码', 'warning')
+    return
+  }
+
   if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
-    alert('请输入新密码')
+    showToast('请输入新密码', 'warning')
+    return
+  }
+
+  if (passwordForm.newPassword.length < 6) {
+    showToast('新密码长度不能少于6位', 'warning')
     return
   }
 
   if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-    console.error('两次输入的密码不一致')
-    alert('两次输入的密码不一致，请重新输入')
+    showToast('两次输入的密码不一致，请重新输入', 'warning')
     return
   }
 
   loading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 调用后端 API 修改密码
+    const { changePassword } = await import('@/api/auth')
+    await changePassword(passwordForm.oldPassword, passwordForm.newPassword)
+    
     showPasswordModal.value = false
     Object.assign(passwordForm, {
       oldPassword: '',
       newPassword: '',
       confirmPassword: ''
     })
-    console.log('密码修改成功')
-    alert('密码修改成功！')
-  } catch (error) {
+    showToast('密码修改成功！', 'success')
+  } catch (error: any) {
     console.error('密码修改失败:', error)
-    alert('密码修改失败，请重试')
+    showToast('密码修改失败：' + (error.message || '请检查当前密码是否正确'), 'error')
   } finally {
     loading.value = false
   }
 }
+
+// 获取用户信息
+const fetchUserProfile = async () => {
+  try {
+    loading.value = true
+    const response = await getUserInfo() as any
+    const userData = response.data || response
+    
+    // 填充用户信息
+    Object.assign(userInfo, {
+      name: userData.name || '',
+      email: userData.email || '',
+      phone: userData.phone || '',
+      department: userData.org?.name || '未分配',
+      lastLogin: userData.last_login_at ? new Date(userData.last_login_at).toLocaleString('zh-CN') : '暂无记录',
+      bio: userData.bio || '',
+      status: '在线'
+    })
+    
+    // 同步到表单
+    Object.assign(formData, {
+      name: userInfo.name,
+      email: userInfo.email,
+      phone: userInfo.phone,
+      department: userInfo.department,
+      bio: userInfo.bio
+    })
+
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 页面加载时获取用户信息
+onMounted(() => {
+  fetchUserProfile()
+})
 </script>
 
 <template>
@@ -233,28 +313,30 @@ const submitPasswordChange = async () => {
             
             <div class="user-meta">
               <div class="name-row">
-                <h1>{{ userInfo.username }}</h1>
+                <h1>{{ userInfo.name }}</h1>
                 <d-tag :color="userInfo.status === '在线' ? 'success' : 'secondary'" size="sm">
                   {{ userInfo.status }}
                 </d-tag>
               </div>
-              <p class="position">{{ userInfo.position }} · {{ userInfo.department }}</p>
+              <p class="position">{{ userInfo.department }}</p>
             </div>
 
             <div class="header-actions">
               <template v-if="!editMode">
-                <d-button bs-style="secondary" @click="handlePasswordChange" class="mr-2">
-                  <template #icon><d-icon name="lock" /></template>
-                  修改密码
-                </d-button>
-                <d-button bs-style="primary" @click="handleEdit">
-                  <template #icon><d-icon name="edit" /></template>
-                  编辑
-                </d-button>
+                <button class="action-btn secondary" @click="handlePasswordChange">
+                  <d-icon name="lock" size="14px" />
+                  <span>修改密码</span>
+                </button>
+                <button class="action-btn primary" @click="handleEdit">
+                  <d-icon name="edit" size="14px" color="#ffffff" />
+                  <span>编辑</span>
+                </button>
               </template>
               <template v-else>
-                <d-button bs-style="primary" :loading="loading" @click="handleSave">保存</d-button>
-                <d-button bs-style="common" @click="handleCancel">取消</d-button>
+                <button class="action-btn primary" :disabled="loading" @click="handleSave">
+                  {{ loading ? '保存中...' : '保存' }}
+                </button>
+                <button class="action-btn secondary" @click="handleCancel">取消</button>
               </template>
             </div>
           </div>
@@ -276,7 +358,7 @@ const submitPasswordChange = async () => {
           <div class="info-grid">
             <div class="info-item">
               <label>用户名</label>
-              <d-input v-model="formData.username" :disabled="!editMode" />
+              <d-input v-model="formData.name" :disabled="!editMode" />
             </div>
             <div class="info-item">
               <label>邮箱</label>
@@ -288,11 +370,13 @@ const submitPasswordChange = async () => {
             </div>
             <div class="info-item">
               <label>部门</label>
-              <d-input v-model="formData.department" :disabled="!editMode" />
-            </div>
-            <div class="info-item">
-              <label>职位</label>
-              <d-input v-model="formData.position" :disabled="!editMode" />
+              <div class="readonly-field">
+                <d-input v-model="formData.department" disabled />
+                <div class="lock-indicator">
+                  <d-icon name="lock" size="12px" />
+                  <span>不可修改</span>
+                </div>
+              </div>
             </div>
             <div class="info-item">
               <label>最后登录</label>
@@ -415,24 +499,58 @@ const submitPasswordChange = async () => {
           </button>
         </div>
         
-        <d-form :data="passwordForm" layout="vertical">
-          <d-form-item label="当前密码">
-            <d-input v-model="passwordForm.oldPassword" type="password" placeholder="请输入当前密码" />
-          </d-form-item>
-          <d-form-item label="新密码">
-            <d-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码" />
-          </d-form-item>
-          <d-form-item label="确认新密码">
-            <d-input v-model="passwordForm.confirmPassword" type="password" placeholder="请再次输入新密码" />
-          </d-form-item>
-        </d-form>
+        <div class="password-form">
+          <div class="form-item">
+            <label>当前密码</label>
+            <input 
+              v-model="passwordForm.oldPassword" 
+              type="password" 
+              placeholder="请输入当前密码"
+              class="password-input"
+            />
+          </div>
+          <div class="form-item">
+            <label>新密码</label>
+            <input 
+              v-model="passwordForm.newPassword" 
+              type="password" 
+              placeholder="请输入新密码（至少6位）"
+              class="password-input"
+            />
+          </div>
+          <div class="form-item">
+            <label>确认新密码</label>
+            <input 
+              v-model="passwordForm.confirmPassword" 
+              type="password" 
+              placeholder="请再次输入新密码"
+              class="password-input"
+            />
+          </div>
+        </div>
 
         <div class="modal-footer">
-          <d-button @click="showPasswordModal = false">取消</d-button>
-          <d-button bs-style="primary" :loading="loading" @click="submitPasswordChange" style="margin-left: 12px">确认修改</d-button>
+          <button class="modal-btn secondary" @click="showPasswordModal = false">取消</button>
+          <button class="modal-btn primary" :disabled="loading" @click="submitPasswordChange">
+            {{ loading ? '修改中...' : '确认修改' }}
+          </button>
         </div>
       </div>
     </div>
+  </Teleport>
+
+  <!-- Toast 提示组件 -->
+  <Teleport to="body">
+    <Transition name="toast">
+      <div v-if="toast.visible" class="toast-notification" :class="toast.type">
+        <div class="toast-icon">
+          <d-icon v-if="toast.type === 'success'" name="right-o" />
+          <d-icon v-else-if="toast.type === 'error'" name="error-o" />
+          <d-icon v-else name="warning-o" />
+        </div>
+        <span class="toast-message">{{ toast.message }}</span>
+      </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -529,13 +647,67 @@ const submitPasswordChange = async () => {
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   flex-shrink: 0;
-  
-  .mr-2 {
-    margin-right: 8px;
-    position: relative;
-    z-index: 10;
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    // 主要按钮（编辑/保存）
+    &.primary {
+      background: linear-gradient(135deg, #5e7ce0 0%, #7c3aed 100%);
+      color: #fff;
+
+      // 图标颜色为白色
+      .devui-icon,
+      :deep(.devui-icon) {
+        color: #fff !important;
+      }
+
+      &:hover:not(:disabled) {
+        background: linear-gradient(135deg, #4c6bcf 0%, #6b2dc9 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(94, 124, 224, 0.4);
+      }
+
+      &:active:not(:disabled) {
+        transform: translateY(0);
+      }
+    }
+
+    // 次要按钮（修改密码/取消）
+    &.secondary {
+      background: #f1f5f9;
+      color: #475569;
+
+      &:hover:not(:disabled) {
+        background: #e2e8f0;
+        color: #334155;
+      }
+
+      &:active:not(:disabled) {
+        background: #cbd5e1;
+      }
+    }
+
+    .devui-icon {
+      font-size: 14px;
+    }
   }
 }
 
@@ -561,6 +733,40 @@ const submitPasswordChange = async () => {
       background: #f8fafc;
       border-color: #e2e8f0;
       color: #334155;
+    }
+  }
+}
+
+// 只读字段样式（如部门）
+.readonly-field {
+  position: relative;
+
+  :deep(.devui-input) {
+    &:disabled {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border-color: #cbd5e1;
+      color: #64748b;
+      cursor: not-allowed;
+    }
+  }
+
+  .lock-indicator {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #94a3b8;
+    font-size: 11px;
+    pointer-events: none;
+    background: rgba(248, 250, 252, 0.9);
+    padding: 2px 6px;
+    border-radius: 4px;
+
+    .devui-icon {
+      font-size: 12px;
     }
   }
 }
@@ -1095,18 +1301,113 @@ const submitPasswordChange = async () => {
       padding: 4px;
       border-radius: 4px;
       transition: all 0.2s;
+      outline: none;
 
       &:hover {
         background: #f1f5f9;
         color: #64748b;
       }
+
+      &:focus {
+        outline: none;
+        box-shadow: none;
+      }
     }
   }
 
+  // 自定义密码表单样式
+  .password-form {
+    .form-item {
+      margin-bottom: 20px;
+
+      label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        color: #374151;
+        margin-bottom: 8px;
+      }
+
+      .password-input {
+        width: 100%;
+        padding: 10px 14px;
+        font-size: 14px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #f8fafc;
+        color: #1e293b;
+        transition: all 0.2s ease;
+        box-sizing: border-box;
+
+        &::placeholder {
+          color: #94a3b8;
+        }
+
+        &:focus {
+          outline: none;
+          border-color: #5e7ce0;
+          background: #fff;
+        }
+      }
+    }
+  }
+
+  // 移除按钮聚焦边框效果
   .modal-footer {
     margin-top: 24px;
     display: flex;
     justify-content: flex-end;
+    gap: 12px;
+
+    .modal-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      // 主要按钮（确认修改）
+      &.primary {
+        background: linear-gradient(135deg, #5e7ce0 0%, #7c3aed 100%);
+        color: #fff;
+
+        &:hover:not(:disabled) {
+          background: linear-gradient(135deg, #4c6bcf 0%, #6b2dc9 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(94, 124, 224, 0.4);
+        }
+
+        &:active:not(:disabled) {
+          transform: translateY(0);
+        }
+      }
+
+      // 次要按钮（取消）
+      &.secondary {
+        background: #f1f5f9;
+        color: #475569;
+
+        &:hover:not(:disabled) {
+          background: #e2e8f0;
+          color: #334155;
+        }
+
+        &:active:not(:disabled) {
+          background: #cbd5e1;
+        }
+      }
+    }
   }
 }
 
@@ -1119,5 +1420,63 @@ const submitPasswordChange = async () => {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+// Toast 通知样式
+.toast-notification {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  font-size: 14px;
+  font-weight: 500;
+
+  .toast-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+  }
+
+  .toast-message { max-width: 300px; }
+
+  &.success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #fff;
+    .toast-icon { background: rgba(255, 255, 255, 0.2); }
+  }
+
+  &.error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #fff;
+    .toast-icon { background: rgba(255, 255, 255, 0.2); }
+  }
+
+  &.warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #fff;
+    .toast-icon { background: rgba(255, 255, 255, 0.2); }
+  }
+}
+
+.toast-enter-active { animation: toastIn 0.3s ease-out; }
+.toast-leave-active { animation: toastOut 0.3s ease-in; }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
 }
 </style>
