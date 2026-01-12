@@ -101,7 +101,7 @@ const loadReports = async () => {
 
     // 添加搜索关键词
     if (searchKeyword.value.trim()) {
-      params.search = searchKeyword.value.trim();
+      params.keyword = searchKeyword.value.trim();
     }
 
     // 构建查询字符串
@@ -138,6 +138,19 @@ const loadReports = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+// 刷新并重置所有搜索和筛选条件
+const handleRefresh = async () => {
+  searchKeyword.value = '';
+  statusFilter.value = 'all';
+  pagination.value.pageIndex = 1;
+  
+  // Add 2s delay to verify animation
+  loading.value = true; // Set loading to true before delay
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  await loadReports();
 };
 
 // 标记是否已初始化
@@ -352,8 +365,8 @@ onMounted(async () => {
               <d-icon name="search" />
             </button>
           </div>
-          <d-button bs-style="text" class="icon-btn" title="刷新" @click="loadReports">
-            <d-icon name="refresh" />
+          <d-button bs-style="text" class="icon-btn" title="刷新" @click="handleRefresh">
+            <d-icon name="refresh" :class="{ 'spin-animation': loading }" />
           </d-button>
         </div>
       </div>
@@ -760,6 +773,8 @@ onMounted(async () => {
           height: 100%;
           margin: 0;
           padding: 0;
+          border: none !important;
+          box-shadow: none !important;
         }
         
         // Target the actual input element with multiple selectors
@@ -767,46 +782,42 @@ onMounted(async () => {
         :deep(.devui-input__inner),
         :deep(input.d-input__inner),
         :deep(input) { 
-          border-radius: 8px 0 0 8px !important;
+          border-radius: 10px 0 0 10px !important; // Slightly more rounded
           padding: 0 20px 0 24px !important;
           padding-left: 24px !important;
-          border: 1px solid #e0e0e0 !important;
+          border: 1.5px solid #eceef2 !important; // Softer, slightly thicker border
           border-right: none !important;
-          background: #fafafa;
+          background: #fff; // Pure white for better contrast
           font-size: 15px;
           color: #333;
-          transition: all 0.25s ease;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           height: 44px !important;
           line-height: 44px !important;
           box-sizing: border-box !important;
           
           &::placeholder {
-            color: #aaa;
+            color: #94a3b8;
             font-weight: 400;
-            padding-left: 0;
           }
           
           &:hover {
-            background: #fff;
-            border-color: #ccc !important;
+            border-color: #cbd5e1 !important;
           }
           
           &:focus,
           &:focus-visible,
           &:focus-within {
+            border-color: #cbd5e1 !important; // Softer gray on focus
             background: #fff;
-            border-color: #e0e0e0 !important;
             outline: none !important;
-            box-shadow: none !important;
-            --devui-form-control-line-active: #e0e0e0 !important;
-            --devui-brand: #e0e0e0 !important;
+            box-shadow: none !important; 
           }
         }
         
         // Also override the wrapper focus styles
         :deep(.devui-input__wrapper:focus-within),
         :deep(.d-input:focus-within) {
-          border-color: #e0e0e0 !important;
+          border-color: #cbd5e1 !important;
           box-shadow: none !important;
           outline: none !important;
         }
@@ -820,13 +831,13 @@ onMounted(async () => {
       } 
       
       .search-btn { 
-        color: #666;
-        background: #fafafa;
+        color: #5e7ce0; // Keep icon blue for recognition
+        background: #fff;
         padding: 0;
-        border: 1px solid #e0e0e0;
+        border: 1.5px solid #eceef2;
         border-left: none;
-        border-radius: 0 8px 8px 0;
-        transition: all 0.25s ease;
+        border-radius: 0 10px 10px 0;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -834,24 +845,26 @@ onMounted(async () => {
         height: 44px;
         box-sizing: border-box;
         cursor: pointer;
+        outline: none;
+        position: relative;
+        z-index: 1;
+        
+        &:focus {
+          outline: none;
+        }
         
         :deep(.d-icon) {
           font-size: 20px;
-        }
-        
-        &:hover { 
-          color: #5e7ce0;
-          background: #fff;
         }
       } 
       
       &:focus-within {
         .custom-search :deep(.d-input__inner),
         .custom-search :deep(input) {
-          border-color: #e0e0e0 !important;
+          border-color: #cbd5e1 !important;
         }
         .search-btn {
-          border-color: #e0e0e0;
+          border-color: #cbd5e1;
         }
       }
     }
@@ -870,6 +883,11 @@ onMounted(async () => {
       justify-content: center;
       cursor: pointer;
       box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      outline: none;
+      
+      &:focus {
+        outline: none;
+      }
       
       &:hover { 
         border-color: #d1d5db;
@@ -1652,6 +1670,21 @@ onMounted(async () => {
       }
     }
   }
+}
+
+.spin-animation {
+  animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite,
+             pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 </style>
 
