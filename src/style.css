@@ -18,6 +18,7 @@ a {
   color: #646cff;
   text-decoration: inherit;
 }
+
 a:hover {
   color: #535bf2;
 }
@@ -46,9 +47,11 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
 button:hover {
   border-color: #646cff;
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
@@ -64,7 +67,7 @@ button:focus-visible {
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
-  
+
   /* 响应式间距 */
   --spacing-page: 24px;
   --spacing-card: 16px;
@@ -93,15 +96,17 @@ button:focus-visible {
   margin: 0 auto;
   padding: 0;
   width: 100%;
-  
+
   /* 现代布局方式 */
   display: flex;
   flex-direction: column;
-  min-height: 100vh; /* 确保撑满视口高度 */
-  text-align: initial; /* 重置文本对齐（按需设置） */
+  min-height: 100vh;
+  /* 确保撑满视口高度 */
+  text-align: initial;
+  /* 重置文本对齐（按需设置） */
   /* 平滑滚动 */
   scroll-behavior: smooth;
-  
+
   /* 防止内容溢出 */
   overflow-x: hidden;
 }
@@ -111,9 +116,11 @@ button:focus-visible {
     color: #213547;
     background-color: #ffffff;
   }
+
   a:hover {
     color: #747bff;
   }
+
   button {
     background-color: #f9f9f9;
   }

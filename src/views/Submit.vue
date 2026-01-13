@@ -131,9 +131,12 @@ const loadReportDetail = async (id: number) => {
       formData.vulnerabilityName = data.vulnerability_name || ''
       formData.vulnerabilityType = data.vulnerability_type_id ? Number(data.vulnerability_type_id) : null
       formData.terminationReason = data.vulnerability_impact || ''
+      // 先尝试直接使用 ID，如果后端返回的是对象则从对象取 ID
       formData.riskLevel = data.self_assessment_id ? Number(data.self_assessment_id) : (data.self_assessment?.id ? Number(data.self_assessment.id) : null)
       formData.vulnerabilityLink = data.vulnerability_url || ''
       formData.vulnerabilityDetails = data.vulnerability_detail || ''
+      
+      // 注意：附件回显目前只支持展示文件名，暂不支持删除编辑原附件重新上传的功能细化
       
       // 强制触发一次同步，确保 radio-group 状态刷新
       await nextTick()
@@ -317,6 +320,7 @@ const handleSubmit = async () => {
     }
 
     const apiUrl = isEditMode.value ? REPORT_API.UPDATE(editId.value!) : REPORT_API.CREATE
+    const method = isEditMode.value ? 'PUT' : 'POST'
 
     // 如果有附件，使用 FormData；否则使用 JSON
     if (formData.attachments && formData.attachments.length > 0) {
@@ -335,11 +339,16 @@ const handleSubmit = async () => {
         formDataToSubmit.append(`attachments[${index}]`, file)
       })
 
-      // 使用 upload 方法提交 FormData
-      await upload(apiUrl, formDataToSubmit)
+      // 使用 upload 方法提交 FormData (支持指定动词)
+      await upload(apiUrl, formDataToSubmit, { method })
     } else {
       // 没有附件，使用 JSON 格式提交
-      await post(apiUrl, submitData)
+      if (isEditMode.value) {
+        const { put } = await import('../utils/request')
+        await put(apiUrl, submitData)
+      } else {
+        await post(apiUrl, submitData)
+      }
     }
 
     // 成功处理
@@ -835,6 +844,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  padding: 24px 16px; // 增加左右和上下边距
 
   .status-circle {
     width: 64px;
@@ -882,6 +892,7 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
+  padding: 0 16px 16px; // 增加左右和底部边距
 
   .devui-btn {
     min-width: 100px;

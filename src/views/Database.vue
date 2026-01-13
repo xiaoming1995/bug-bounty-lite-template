@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { Message } from 'vue-devui';
 import Header from './Public/Header.vue';
-import { get } from '../utils/request';
+import { get, del } from '../utils/request';
 import { REPORT_API } from '../api/config';
 
 const router = useRouter();
@@ -20,6 +21,11 @@ interface ReportItem {
   vulnerability_impact: string
   severity_level_id: number
   severity_level?: {
+    id: number
+    config_value: string
+  }
+  self_assessment_id: number
+  self_assessment?: {
     id: number
     config_value: string
   }
@@ -47,13 +53,15 @@ const searchKeyword = ref('');
 const tableData = ref<ReportItem[]>([]);
 
 // Status filter
+const deleteModalVisible = ref(false);
+const pendingDeleteRow = ref<ReportItem | null>(null);
+
 const statusFilter = ref('all');
 const statusOptions = [
   { label: '全部状态', value: 'all' },
   { label: '待审核', value: 'pending' },
-  { label: '已确认', value: 'confirmed' },
-  { label: '已修复', value: 'fixed' },
-  { label: '已关闭', value: 'closed' },
+  { label: '已审核', value: 'audited' },
+  { label: '驳回', value: 'rejected' },
 ];
 
 // Filtered table data based on status
@@ -222,75 +230,85 @@ const editDetail = (row: ReportItem) => {
 
 
 
-const deleteItem = async (row: ReportItem) => {
-  if (!confirm('确定要删除这条记录吗？')) {
-    return;
-  }
+const deleteItem = (row: ReportItem) => {
+  pendingDeleteRow.value = row;
+  deleteModalVisible.value = true;
+};
+
+const confirmDelete = async () => {
+  if (!pendingDeleteRow.value) return;
   
   try {
-    // TODO: 调用删除接口
-    // await del(REPORT_API.DELETE(row.id))
-  console.log('删除单条:', row);
+    loading.value = true;
+    await del(REPORT_API.DELETE(pendingDeleteRow.value.id));
+    Message.success('报告已成功删除');
+    deleteModalVisible.value = false;
+    pendingDeleteRow.value = null;
     await loadReports();
-  } catch (error) {
+  } catch (error: any) {
     console.error('删除失败:', error);
-    alert('删除失败，请重试');
+    Message.error(error.message || '删除失败，请重试');
+  } finally {
+    loading.value = false;
   }
 };
 
-// 获取状态样式
 const getStatusClass = (status: string | undefined) => {
   if (!status) return 'pending';
+  const s = status.toLowerCase();
   const statusMap: Record<string, string> = {
-    '已确认': 'confirmed',
-    '待确认': 'pending',
-    '待处理': 'pending',
-    '已修复': 'fixed',
-    '已关闭': 'closed',
-    '已驳回': 'closed'
+    'pending': 'pending',
+    'audited': 'confirmed',
+    'rejected': 'closed'
   }
-  return statusMap[status] || 'pending'
+  return statusMap[s] || 'pending'
+}
+
+// 获取状态名称（同步数据库备注）
+const getStatusText = (status: string | undefined) => {
+  if (!status) return '待审核';
+  const s = status.toLowerCase();
+  const textMap: Record<string, string> = {
+    'pending': '待审核',
+    'audited': '已审核',
+    'rejected': '驳回'
+  }
+  return textMap[s] || status;
 }
 
 // 将英文危害等级转换为中文
-const getSeverityText = (severity: string | undefined): string => {
-  if (!severity) return '-';
+const getSeverityText = (severity: string | number | undefined): string => {
+  if (severity === undefined || severity === null || severity === '') return '-';
   
-  // 统一转换为首字母大写进行比较
-  const severityNormalized = severity.charAt(0).toUpperCase() + severity.slice(1).toLowerCase();
+  const s = String(severity);
+  const severityNormalized = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
   
   const textMap: Record<string, string> = {
-    '1': '严重', 'Critical': '严重', '严重': '严重',
-    '2': '高危', 'High': '高危', '高危': '高危',
-    '3': '中危', 'Medium': '中危', '中危': '中危',
-    '4': '低危', 'Low': '低危', '低危': '低危',
-    '无危害': '无危害'
+    'Critical': '严重', '1': '严重',
+    'High': '高危',     '2': '高危',
+    'Medium': '中危',   '3': '中危',
+    'Low': '低危',      '4': '低危',
+    'None': '无危害',    '5': '无危害'
   };
   
-  return textMap[severityNormalized] || textMap[String(severity)] || severity;
+  return textMap[severityNormalized] || textMap[s] || s;
 };
 
-const getSeverityColor = (severity: string | undefined) => {
-  if (!severity) return 'primary';
+const getSeverityColor = (severity: string | number | undefined) => {
+  if (severity === undefined || severity === null || severity === '') return 'primary';
   
-  // 统一转换为首字母大写进行比较（匹配 Low/Medium/High/Critical）
-  const severityNormalized = severity.charAt(0).toUpperCase() + severity.slice(1).toLowerCase();
+  const s = String(severity);
+  const severityNormalized = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
   
   const map: Record<string, string> = {
-    // 英文危害等级映射
-    'Critical': 'danger',  // 严重 - 红色
-    'High': 'danger',      // 高危 - 红色
-    'Medium': 'warning',   // 中危 - 黄色
-    'Low': 'success',      // 低危 - 绿色
-    // 中文映射（兼容）
-    '高危': 'danger',
-    '严重': 'danger',
-    '中危': 'warning',
-    '低危': 'success',
-    '无危害': 'success',
+    'Critical': 'danger',  '1': 'danger',
+    'High': 'danger',      '2': 'danger',
+    'Medium': 'warning',   '3': 'warning',
+    'Low': 'success',      '4': 'success',
+    'None': 'success',     '5': 'success'
   };
   
-  return map[severityNormalized] || map[severity] || 'primary';
+  return map[severityNormalized] || map[s] || 'primary';
 };
 
 // 格式化日期
@@ -430,8 +448,8 @@ onMounted(async () => {
               <td><span class="cve-tag">#{{ row.id }}</span></td>
               <td><div class="vuln-title">{{ row.vulnerability_name }}</div></td>
               <td>
-                <div class="severity-badge" :class="getSeverityColor(row.severity_level?.config_value || row.severity)">
-                  <span class="dot"></span>{{ getSeverityText(row.severity_level?.config_value || row.severity) }}
+                <div class="severity-badge" :class="getSeverityColor(row.self_assessment?.config_value || row.self_assessment_id)">
+                  <span class="dot"></span>{{ getSeverityText(row.self_assessment?.config_value || row.self_assessment_id) }}
                 </div>
               </td>
               <td>
@@ -440,7 +458,7 @@ onMounted(async () => {
                 </div>
               </td>
               <td>
-                <span :class="['status-badge', getStatusClass(row.status)]">{{ row.status || '待处理' }}</span>
+                <span :class="['status-badge', getStatusClass(row.status)]">{{ getStatusText(row.status) }}</span>
               </td>
               <td><span class="date-text">{{ formatDate(row.created_at) }}</span></td>
               <td class="text-right">
@@ -456,7 +474,12 @@ onMounted(async () => {
                   >
                     <d-icon name="edit" size="16px" />
                   </button>
-                  <button class="action-btn delete-btn" title="删除" @click="deleteItem(row)">
+                  <button 
+                    v-if="getStatusClass(row.status) === 'pending'"
+                    class="action-btn delete-btn" 
+                    title="删除" 
+                    @click="deleteItem(row)"
+                  >
                     <d-icon name="delete" size="16px" />
                   </button>
                 </div>
@@ -499,7 +522,7 @@ onMounted(async () => {
                 <div class="levels-display">
                   <div class="level-item">
                     <span class="label">自评:</span>
-                    <span class="severity-badge" :class="getSeverityColor(row.severity_level?.config_value || row.severity)">{{ getSeverityText(row.severity_level?.config_value || row.severity) }}</span>
+                    <span class="severity-badge" :class="getSeverityColor(row.self_assessment?.config_value || row.self_assessment_id)">{{ getSeverityText(row.self_assessment?.config_value || row.self_assessment_id) }}</span>
                   </div>
                   <div class="level-item">
                     <span class="label">通过:</span>
@@ -524,7 +547,11 @@ onMounted(async () => {
                   >
                     <d-icon name="edit" size="16px" />
                   </button>
-                  <button class="action-btn delete-btn" @click.stop="deleteItem(row)">
+                  <button 
+                    v-if="getStatusClass(row.status) === 'pending'"
+                    class="action-btn delete-btn" 
+                    @click.stop="deleteItem(row)"
+                  >
                     <d-icon name="delete" size="16px" />
                   </button>
                 </div>
@@ -547,6 +574,30 @@ onMounted(async () => {
     </div>
     </div>
   </div>
+
+  <!-- 删除确认模态框 -->
+  <d-modal
+    v-model="deleteModalVisible"
+    :show-close="false"
+    class="status-modal delete-modal"
+    width="460px"
+  >
+    <div class="status-content warning">
+      <div class="status-circle">
+        <d-icon name="info-o" size="36px" color="#fff" />
+      </div>
+      <div class="text-content">
+        <h3>确定要删除这条漏洞吗？</h3>
+        <p>删除后数据将无法恢复，请谨慎操作内容。当前漏洞：<span class="highlight">#{{ pendingDeleteRow?.id }} {{ pendingDeleteRow?.vulnerability_name }}</span></p>
+      </div>
+    </div>
+    <template #footer>
+      <div class="modal-actions">
+        <d-button bs-style="common" class="btn-secondary" @click="deleteModalVisible = false">取消</d-button>
+        <d-button bs-style="danger" class="btn-danger" :loading="loading" @click="confirmDelete">确定删除</d-button>
+      </div>
+    </template>
+  </d-modal>
 </template>
 
 <style scoped lang="scss">
@@ -605,6 +656,8 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
 }
+
+// 状态模态框样式 (同步 Submit.vue 风格)
 
 .database-page {
   padding: var(--spacing-page, 32px) clamp(16px, 4vw, 40px);
@@ -1935,5 +1988,140 @@ onMounted(async () => {
 // 默认隐藏移动端卡片列表
 .mobile-card-list {
   display: none;
+}
+</style>
+
+<style lang="scss">
+// 全局样式块，确保脱离组件树的模态框内容样式生效
+.status-modal.delete-modal {
+  .devui-modal-content {
+    border-radius: 4px !important; // 极致长方形
+    padding: 0 !important;
+    overflow: hidden;
+    border: none !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  }
+  
+  .devui-modal-header {
+    display: none !important;
+  }
+  
+  .devui-modal-body {
+    padding: 0 !important;
+  }
+  
+  .devui-modal-footer {
+    padding: 0 !important; // 清空容器内边距，由内部 modal-actions 控制以防失效
+    border: none !important;
+  }
+
+  .status-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 48px 32px 24px;
+
+    .status-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      position: relative;
+      
+      &::after {
+        content: '';
+        position: absolute;
+        inset: -6px;
+        border-radius: 50%;
+        border: 1px solid currentColor;
+        opacity: 0.15;
+      }
+    }
+
+    &.warning .status-circle {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #f59e0b;
+      box-shadow: 0 8px 16px rgba(245, 158, 11, 0.2);
+    }
+
+    .text-content {
+      width: 100%; // 确保容器占满宽度以实现文字居中
+      
+      h3 {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 12px;
+        text-align: center;
+        white-space: nowrap; // 强制标题单行展示
+      }
+
+      p {
+        font-size: 14px;
+        color: #64748b;
+        line-height: 1.6;
+        margin: 0;
+        text-align: center; // 强制正文居中
+        
+        .highlight {
+          color: #1e293b;
+          font-weight: 600;
+          display: block;
+          margin-top: 8px;
+          text-align: center; // 确保高亮信息块居中
+        }
+      }
+    }
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    padding: 0 40px 48px; // 在容器上显式设置边距，确保按钮不贴边
+    box-sizing: border-box;
+
+    .devui-btn {
+      flex: 1;
+      height: 44px !important;
+      border-radius: 4px !important; // 配合长方形
+      font-weight: 600 !important;
+      font-size: 14px !important;
+      transition: all 0.3s ease !important;
+    }
+
+    .btn-secondary {
+      background: #f1f5f9 !important;
+      border: none !important;
+      color: #64748b !important;
+      
+      &:hover {
+        background: #e2e8f0 !important;
+        color: #475569 !important;
+      }
+    }
+
+    .btn-danger {
+      background: #ef4444 !important;
+      border: none !important;
+      color: white !important;
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3) !important;
+      
+      &:hover {
+        background: #dc2626 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4) !important;
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+    }
+  }
 }
 </style>

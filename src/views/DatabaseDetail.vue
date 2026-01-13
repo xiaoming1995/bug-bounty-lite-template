@@ -5,6 +5,7 @@ import Header from './Public/Header.vue'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { Message } from 'vue-devui'
+import { getReportDetail } from '@/api/report'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,6 +31,7 @@ interface VulnerabilityDetail {
   title: string
   type: string
   level: string
+  officialLevel: string
   status: string
   submitTime: string
   updateTime: string
@@ -48,6 +50,7 @@ const vulnerabilityDetail = ref<VulnerabilityDetail>({
   title: '',
   type: '',
   level: '',
+  officialLevel: '',
   status: '',
   submitTime: '',
   updateTime: '',
@@ -67,59 +70,42 @@ const loading = ref(true)
 const fetchVulnerabilityDetail = async () => {
   loading.value = true
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // 模拟数据
-    vulnerabilityDetail.value = {
-      id: vulnerabilityId.value,
-      title: `SQL注入漏洞 - ${vulnerabilityId.value}`,
-      type: 'SQL注入',
-      level: '高危',
-      status: '已确认',
-      submitTime: '2024-01-15 10:30:00',
-      updateTime: '2024-01-16 14:20:00',
-      submitter: '安全研究员',
-      project: '百度搜索',
-      description: '在用户登录接口发现SQL注入漏洞，攻击者可以通过构造恶意SQL语句获取数据库敏感信息。',
-      poc: `
-1. 发现方式：
-通过对登录接口进行安全测试，发现username参数存在SQL注入漏洞。
-
-2. 漏洞证明：
-POST /api/login HTTP/1.1
-Content-Type: application/json
-
-{
-  "username": "admin' OR '1'='1' --",
-  "password": "test"
-}
-
-3. 修复方案：
-使用参数化查询或预编译语句，对用户输入进行严格过滤和验证。
-      `,
-      solution: '已修复，使用参数化查询替换字符串拼接SQL语句。',
-      attachments: [
-        { name: '漏洞截图.png', size: '2.5MB', url: '#' },
-        { name: '测试报告.pdf', size: '1.2MB', url: '#' }
-      ],
-      comments: [
-        {
-          id: 1,
-          author: '安全团队',
-          time: '2024-01-16 09:00:00',
-          content: '漏洞已确认，正在修复中。'
-        },
-        {
-          id: 2,
-          author: '开发团队',
-          time: '2024-01-16 14:20:00',
-          content: '漏洞已修复，请验证。'
-        }
-      ]
+    const reportId = Number(vulnerabilityId.value)
+    if (isNaN(reportId)) {
+      Message.error('无效的漏洞ID')
+      router.push('/database')
+      return
     }
-  } catch (error) {
+
+    const data = await getReportDetail(reportId)
+    
+    // 映射后端数据到前端接口
+    vulnerabilityDetail.value = {
+      id: String(data.id),
+      title: data.vulnerability_name,
+      type: data.vulnerability_type?.config_value || '未知类型',
+      level: data.self_assessment?.config_value || String(data.self_assessment_id || ''),
+      officialLevel: data.severity || '',
+      status: data.status,
+      submitTime: data.created_at ? new Date(data.created_at).toLocaleString() : '-',
+      updateTime: data.updated_at ? new Date(data.updated_at).toLocaleString() : '-',
+      submitter: data.author?.name || '安全研究员',
+      project: data.project?.name || '未知项目',
+      description: data.vulnerability_impact || '暂无描述',
+      poc: data.vulnerability_detail || '暂无详情',
+      solution: '请查阅漏洞详情获取修复建议', // 后端暂无独立修复方案字段，默认提示
+      attachments: data.attachment_url ? [
+        { 
+          name: data.attachment_url.split('/').pop() || '附件', 
+          size: '-', 
+          url: data.attachment_url 
+        }
+      ] : [],
+      comments: [] // 后端评论功能尚未完全对接
+    }
+  } catch (error: any) {
     console.error('获取漏洞详情失败:', error)
+    Message.error(error.message || '获取漏洞详情失败')
   } finally {
     loading.value = false
   }
@@ -130,27 +116,64 @@ const goBack = () => {
   router.push('/database')
 }
 
-// 获取危险等级的样式类
-const getLevelClass = (level: string) => {
-  const levelMap: Record<string, string> = {
-    '1': 'critical', '严重': 'critical',
-    '2': 'high', '高危': 'high',
-    '3': 'medium', '中危': 'medium',
-    '4': 'low', '低危': 'low',
-    '无危害': 'info'
-  }
-  return levelMap[String(level)] || levelMap[level] || 'info'
-}
+// 获取等级颜色
+const getSeverityColor = (severity: string | number | undefined) => {
+  if (severity === undefined || severity === null || severity === '' || severity === '未评估') return 'info';
+  
+  const s = String(severity);
+  const severityNormalized = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  
+  const map: Record<string, string> = {
+    'Critical': 'critical', '1': 'critical',
+    'High': 'high',         '2': 'high',
+    'Medium': 'medium',     '3': 'medium',
+    'Low': 'low',           '4': 'low',
+    'None': 'low',          '5': 'low'
+  };
+  
+  return map[severityNormalized] || map[s] || 'info';
+};
+
+// 获取等级名称
+const getSeverityText = (severity: string | number | undefined): string => {
+  if (severity === undefined || severity === null || severity === '' || severity === '未评估') return '未评估';
+  
+  const s = String(severity);
+  const severityNormalized = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  
+  const textMap: Record<string, string> = {
+    'Critical': '严重', '1': '严重',
+    'High': '高危',     '2': '高危',
+    'Medium': '中危',   '3': '中危',
+    'Low': '低危',      '4': '低危',
+    'None': '无危害',    '5': '无危害'
+  };
+  
+  return textMap[severityNormalized] || textMap[s] || s;
+};
 
 // 获取状态样式类
-const getStatusClass = (status: string) => {
+const getStatusClass = (status: string | undefined) => {
+  if (!status) return 'pending';
+  const s = status.toLowerCase();
   const statusMap: Record<string, string> = {
-    '已确认': 'confirmed',
-    '待确认': 'pending',
-    '已修复': 'fixed',
-    '已关闭': 'closed'
+    'pending': 'pending',
+    'audited': 'confirmed',
+    'rejected': 'closed'
   }
-  return statusMap[status] || 'pending'
+  return statusMap[s] || 'pending'
+}
+
+// 获取状态名称
+const getStatusText = (status: string | undefined) => {
+  if (!status) return '待审核';
+  const s = status.toLowerCase();
+  const textMap: Record<string, string> = {
+    'pending': '待审核',
+    'audited': '已审核',
+    'rejected': '驳回'
+  }
+  return textMap[s] || status;
 }
 
 const newComment = ref('')
@@ -223,6 +246,15 @@ const exportToPDF = async () => {
   }
 }
 
+// 下载附件
+const handleDownload = (url: string) => {
+  if (url && url !== '#') {
+    window.open(url, '_blank')
+  } else {
+    Message.warning('附件链接无效')
+  }
+}
+
 onMounted(() => {
   fetchVulnerabilityDetail()
 })
@@ -272,15 +304,21 @@ onMounted(() => {
               <span>{{ vulnerabilityDetail.type }}</span>
             </div>
             <div class="info-item">
-              <label>危险等级:</label>
-              <span :class="['level-badge', getLevelClass(vulnerabilityDetail.level)]">
-                {{ vulnerabilityDetail.level }}
+              <label>自评等级:</label>
+              <span :class="['level-badge', getSeverityColor(vulnerabilityDetail.level)]">
+                {{ getSeverityText(vulnerabilityDetail.level) }}
+              </span>
+            </div>
+            <div class="info-item">
+              <label>通过等级:</label>
+              <span :class="['level-badge', getSeverityColor(vulnerabilityDetail.officialLevel)]">
+                {{ getSeverityText(vulnerabilityDetail.officialLevel) }}
               </span>
             </div>
             <div class="info-item">
               <label>状态:</label>
               <span :class="['status-badge', getStatusClass(vulnerabilityDetail.status)]">
-                {{ vulnerabilityDetail.status }}
+                {{ getStatusText(vulnerabilityDetail.status) }}
               </span>
             </div>
             <div class="info-item">
@@ -312,7 +350,7 @@ onMounted(() => {
         <div class="content-card">
           <h3>漏洞详情</h3>
           <div class="poc-content">
-            <pre>{{ vulnerabilityDetail.poc }}</pre>
+            <div class="rich-content" v-html="vulnerabilityDetail.poc"></div>
           </div>
         </div>
 
@@ -334,7 +372,11 @@ onMounted(() => {
               <d-icon name="file" />
               <span class="attachment-name">{{ attachment.name }}</span>
               <span class="attachment-size">{{ attachment.size }}</span>
-              <d-button bs-style="text" bs-size="sm">下载</d-button>
+              <d-button 
+                bs-style="text" 
+                bs-size="sm" 
+                @click="handleDownload(attachment.url)"
+              >下载</d-button>
             </div>
           </div>
         </div>
@@ -349,7 +391,7 @@ onMounted(() => {
           <!-- 时间轴列表 -->
           <div class="timeline-wrapper">
             <div 
-              v-for="(comment, index) in vulnerabilityDetail.comments" 
+              v-for="comment in vulnerabilityDetail.comments" 
               :key="comment.id"
               :class="['timeline-item', comment.author === '安全团队' || comment.author === '开发团队' ? 'official' : 'researcher']"
             >
@@ -575,22 +617,66 @@ onMounted(() => {
     margin: 0;
   }
 
-  .poc-content {
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
-    padding: 16px;
+    .poc-content {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 20px;
 
-    pre {
-      margin: 0;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      font-size: 13px;
-      line-height: 1.5;
-      color: #333;
-      white-space: pre-wrap;
-      word-wrap: break-word;
+      .rich-content {
+        font-size: 14px;
+        line-height: 1.8;
+        color: #333;
+        word-wrap: break-word;
+
+        :deep(img) {
+          max-width: 100%;
+          height: auto;
+          border-radius: 4px;
+          margin: 12px 0;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+
+        :deep(p) {
+          margin-bottom: 12px;
+        }
+
+        :deep(ul), :deep(ol) {
+          padding-left: 24px;
+          margin-bottom: 12px;
+        }
+
+        :deep(li) {
+          margin-bottom: 8px;
+        }
+
+        :deep(pre) {
+          background: #2d2d2d;
+          color: #f8f8f2;
+          padding: 16px;
+          border-radius: 8px;
+          overflow-x: auto;
+          font-family: 'Consolas', 'Monaco', monospace;
+          margin: 16px 0;
+        }
+
+        :deep(code) {
+          background: #f0f0f0;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-family: monospace;
+          color: #e83e8c;
+        }
+
+        :deep(blockquote) {
+          border-left: 4px solid #3b82f6;
+          background: #f0f7ff;
+          padding: 12px 20px;
+          margin: 16px 0;
+          color: #475569;
+        }
+      }
     }
-  }
 }
 
 .attachments-list {

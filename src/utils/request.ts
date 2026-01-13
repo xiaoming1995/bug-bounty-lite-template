@@ -260,7 +260,7 @@ export function patch<T = any>(
 export function upload(
   url: string,
   file: File | FormData,
-  config?: RequestConfig
+  config?: RequestConfig & { method?: string }
 ): Promise<any> {
   const formData = file instanceof FormData ? file : (() => {
     const fd = new FormData()
@@ -276,9 +276,11 @@ export function upload(
   }
   // 不设置 Content-Type，让浏览器自动设置（包含 boundary）
 
+  const { method = 'POST', ...restConfig } = config || {}
+
   return request(url, {
-    ...config,
-    method: 'POST',
+    ...restConfig,
+    method,
     headers,
     body: formData
   })

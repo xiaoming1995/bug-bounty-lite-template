@@ -9,9 +9,18 @@ export interface Report {
     vulnerability_name: string
     vulnerability_type_id: number
     self_assessment_id: number
+    vulnerability_impact: string
+    vulnerability_detail: string
+    attachment_url: string
+    severity: string
     status: string
     created_at: string
     updated_at: string
+    author?: {
+        id: number
+        name: string
+        username: string
+    }
     project?: {
         id: number
         name: string
