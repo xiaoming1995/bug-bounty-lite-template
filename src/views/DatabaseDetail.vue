@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Header from './Public/Header.vue'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { Message } from 'vue-devui'
 import { getReportDetail } from '@/api/report'
+import { getReportComments, createReportComment, type ReportComment as ApiComment } from '@/api/comment'
+import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,6 +24,8 @@ interface Attachment {
 interface Comment {
   id: number
   author: string
+  avatar: string
+  role: 'official' | 'researcher'
   time: string
   content: string
 }
@@ -93,7 +97,7 @@ const fetchVulnerabilityDetail = async () => {
       project: data.project?.name || '未知项目',
       description: data.vulnerability_impact || '暂无描述',
       poc: data.vulnerability_detail || '暂无详情',
-      solution: '请查阅漏洞详情获取修复建议', // 后端暂无独立修复方案字段，默认提示
+      solution: '请查阅漏洞详情获取修复建议',
       attachments: data.attachment_url ? [
         { 
           name: data.attachment_url.split('/').pop() || '附件', 
@@ -101,13 +105,34 @@ const fetchVulnerabilityDetail = async () => {
           url: data.attachment_url 
         }
       ] : [],
-      comments: [] // 后端评论功能尚未完全对接
+      comments: []
     }
+
+    // 获取评论列表
+    await fetchComments(reportId)
   } catch (error: any) {
     console.error('获取漏洞详情失败:', error)
     Message.error(error.message || '获取漏洞详情失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 获取评论列表
+const fetchComments = async (reportId: number) => {
+  try {
+    const apiComments = await getReportComments(reportId)
+    // 将 API 返回的评论转换为前端格式
+    vulnerabilityDetail.value.comments = apiComments.map((c: ApiComment) => ({
+      id: c.id,
+      author: c.author?.name || c.author?.username || '用户',
+      avatar: c.author?.avatar?.url || '',
+      role: (c.author?.role === 'admin' ? 'official' : 'researcher') as 'official' | 'researcher',
+      time: new Date(c.created_at).toLocaleString(),
+      content: c.content
+    }))
+  } catch (error) {
+    console.error('获取评论失败:', error)
   }
 }
 
@@ -179,6 +204,21 @@ const getStatusText = (status: string | undefined) => {
 const newComment = ref('')
 const submitLoading = ref(false)
 
+// 获取当前用户信息
+const userStore = useUserStore()
+const currentUser = computed(() => {
+  const user = userStore.userInfo
+  let avatarUrl = ''
+  if (user?.avatar) {
+    avatarUrl = typeof user.avatar === 'string' ? user.avatar : user.avatar.url || ''
+  }
+  return {
+    name: user?.name || user?.username || '当前用户',
+    avatar: avatarUrl,
+    role: user?.role || 'whitehat'
+  }
+})
+
 // 提交新留言
 const submitComment = async () => {
   if (!newComment.value.trim()) {
@@ -187,20 +227,19 @@ const submitComment = async () => {
   
   submitLoading.value = true
   try {
-    // 模拟数据提交过程
-    await new Promise(resolve => setTimeout(resolve, 800))
+    const reportId = Number(vulnerabilityId.value)
     
-    // 向列表添加新留言
-    vulnerabilityDetail.value.comments.push({
-      id: Date.now(),
-      author: '当前用户', // 实际开发中根据登录身份决定
-      time: new Date().toLocaleString(),
-      content: newComment.value.trim()
-    })
+    // 调用后端 API 创建评论
+    await createReportComment(reportId, newComment.value.trim())
+    
+    // 刷新评论列表
+    await fetchComments(reportId)
     
     newComment.value = ''
-  } catch (error) {
+    Message.success('留言发布成功')
+  } catch (error: any) {
     console.error('提交留言失败:', error)
+    Message.error(error.message || '留言发布失败，请重试')
   } finally {
     submitLoading.value = false
   }
@@ -393,13 +432,23 @@ onMounted(() => {
             <div 
               v-for="comment in vulnerabilityDetail.comments" 
               :key="comment.id"
-              :class="['timeline-item', comment.author === '安全团队' || comment.author === '开发团队' ? 'official' : 'researcher']"
+              :class="['timeline-item', comment.role === 'official' ? 'official' : 'researcher']"
             >
-              <div class="timeline-dot"></div>
+              <div class="comment-avatar">
+                <d-avatar 
+                  :width="36" 
+                  :height="36" 
+                  :is-round="true" 
+                  :img-src="comment.avatar || ''"
+                  class="avatar-img"
+                >
+                  <template #avatar v-if="!comment.avatar">{{ comment.author.substring(0,1) }}</template>
+                </d-avatar>
+              </div>
               <div class="timeline-content">
                 <div class="comment-metadata">
                   <span class="author-tag">
-                    <d-icon :name="comment.author === '安全团队' ? 'manager' : 'user'" size="14px" />
+                    <d-icon :name="comment.role === 'official' ? 'manager' : 'user'" size="14px" />
                     {{ comment.author }}
                   </span>
                   <span class="time-stamp">{{ comment.time }}</span>
@@ -419,8 +468,16 @@ onMounted(() => {
           <!-- 发送留言 (时间轴末端) -->
           <div class="reply-area">
             <div class="reply-container">
-              <div class="user-avatar-small">
-                <d-icon name="user" size="20px" />
+              <div class="reply-avatar">
+                <d-avatar 
+                  :width="36" 
+                  :height="36" 
+                  :is-round="true" 
+                  :img-src="currentUser.avatar || ''"
+                  class="avatar-img"
+                >
+                  <template #avatar v-if="!currentUser.avatar">{{ currentUser.name.substring(0,1) }}</template>
+                </d-avatar>
               </div>
               <div class="input-wrapper">
                 <d-textarea
@@ -746,52 +803,43 @@ onMounted(() => {
 }
 
 .timeline-wrapper {
-  padding-left: 20px;
   position: relative;
   margin-bottom: 40px;
 
-  &::before {
-    content: '';
-    position: absolute;
-    left: 4px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: #e2e8f0;
-  }
-
   .timeline-item {
-    position: relative;
-    padding-bottom: 32px;
+    display: flex;
+    gap: 16px;
+    padding-bottom: 24px;
     
     &:last-child {
       padding-bottom: 0;
     }
 
-    .timeline-dot {
-      position: absolute;
-      left: -20px;
-      top: 6px;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #cbd5e1;
-      border: 2px solid #fff;
-      z-index: 1;
-      box-shadow: 0 0 0 2px #f8fafc;
+    .comment-avatar {
+      flex-shrink: 0;
+      
+      .avatar-img {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: 2px solid #fff;
+      }
     }
 
     &.official {
-      .timeline-dot { background: #3b82f6; }
+      .comment-avatar .avatar-img {
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+      }
       .author-tag { color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
     }
 
     &.researcher {
-      .timeline-dot { background: #10b981; }
+      .comment-avatar .avatar-img {
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+      }
       .author-tag { color: #10b981; background: rgba(16, 185, 129, 0.08); }
     }
 
     .timeline-content {
+      flex: 1;
       background: #fcfdfe;
       border: 1px solid #f1f5f9;
       padding: 16px;
@@ -854,17 +902,13 @@ onMounted(() => {
     display: flex;
     gap: 16px;
 
-    .user-avatar-small {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #64748b;
+    .reply-avatar {
       flex-shrink: 0;
+      
+      .avatar-img {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border: 2px solid #fff;
+      }
     }
 
     .input-wrapper {
