@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
+import { getMyArticles, deleteArticle, type Article } from '@/api/article'
 
 interface UserArticle {
   id: number
@@ -17,46 +19,31 @@ interface UserArticle {
 const router = useRouter()
 const loading = ref(true)
 
-// Mock 用户发布的文章数据
-const myArticles = ref<UserArticle[]>([
-  {
-    id: 1,
-    title: '深入理解 Web 安全中的 XSS 攻击与防御',
-    publishDate: '2026-01-10 14:30',
-    likes: 24,
-    views: 156,
-    status: 'pending',
-    statusName: '审核中'
-  },
-  {
-    id: 2,
-    title: 'Linux 内核提权漏洞分析：从 CVE-2023 谈起',
-    publishDate: '2026-01-08 10:15',
-    likes: 56,
-    views: 890,
-    status: 'approved',
-    statusName: '已发布'
-  },
-  {
-    id: 3,
-    title: '企业级 OAuth2.0 认证安全最佳实践',
-    publishDate: '2026-01-05 09:00',
-    likes: 0,
-    views: 12,
-    status: 'rejected',
-    statusName: '被驳回',
-    rejectReason: '文章内容涉及泄密，请修改敏感信息后重新提交。'
-  },
-  {
-    id: 4,
-    title: '移动应用渗透测试入门指南',
-    publishDate: '2026-01-02 16:45',
-    likes: 12,
-    views: 345,
-    status: 'approved',
-    statusName: '已发布'
+// 用户发布的文章数据
+const myArticles = ref<UserArticle[]>([])
+
+// 获取文章列表
+const fetchArticles = async () => {
+  loading.value = true
+  try {
+    const articles = await getMyArticles()
+    myArticles.value = articles.map((a: Article) => ({
+      id: a.id,
+      title: a.title,
+      publishDate: new Date(a.created_at).toLocaleString(),
+      likes: a.likes,
+      views: a.views,
+      status: a.status,
+      statusName: a.status === 'approved' ? '已发布' : a.status === 'pending' ? '审核中' : '被驳回',
+      rejectReason: a.reject_reason
+    }))
+  } catch (error) {
+    console.error('获取文章列表失败:', error)
+    Message.error('获取文章列表失败')
+  } finally {
+    loading.value = false
   }
-])
+}
 
 const getStatusType = (status: string) => {
   switch (status) {
@@ -86,18 +73,24 @@ const confirmDelete = (article: UserArticle) => {
   showDeleteConfirm.value = true
 }
 
-const handleDelete = () => {
+const handleDelete = async () => {
   if (articleToDelete.value) {
-    myArticles.value = myArticles.value.filter(a => a.id !== articleToDelete.value!.id)
-    showDeleteConfirm.value = false
-    articleToDelete.value = null
+    try {
+      await deleteArticle(articleToDelete.value.id)
+      myArticles.value = myArticles.value.filter(a => a.id !== articleToDelete.value!.id)
+      Message.success('文章删除成功')
+    } catch (error: any) {
+      console.error('删除文章失败:', error)
+      Message.error(error.message || '删除文章失败')
+    } finally {
+      showDeleteConfirm.value = false
+      articleToDelete.value = null
+    }
   }
 }
 
 onMounted(() => {
-  setTimeout(() => {
-    loading.value = false
-  }, 600)
+  fetchArticles()
 })
 </script>
 

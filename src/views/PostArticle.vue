@@ -4,6 +4,7 @@ import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { QuillEditor } from '@vueup/vue-quill'
 import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
+import { createArticle, updateArticle, getArticle } from '@/api/article'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
 const router = useRouter()
@@ -23,20 +24,18 @@ onMounted(() => {
   }
 })
 
-// 加载 Mock 文章数据（编辑模式）
-const loadArticleData = (id: string) => {
-  console.log('加载文章数据 ID:', id)
-  // 模拟从后端获取数据
-  setTimeout(() => {
-    formModel.title = '深入理解 Web 安全中的 XSS 攻击与防御'
-    formModel.description = '这是一篇关于 XSS 攻击原理与深度防护技术的专业研究文章。'
-    formModel.content = `
-      <h2>研究背景</h2>
-      <p>随着 Web 应用的功能日益复杂，跨站脚本攻击 (XSS) 仍然是最具威胁的漏洞之一...</p>
-      <h2>防护建议</h2>
-      <p>1. 始终对用户输入进行严格的转义处理；2. 部署强大的内容安全策略 (CSP)...</p>
-    `
-  }, 500)
+// 加载文章数据（编辑模式）
+const loadArticleData = async (id: string) => {
+  try {
+    const article = await getArticle(Number(id))
+    formModel.title = article.title
+    formModel.description = article.description
+    formModel.content = article.content
+  } catch (error) {
+    console.error('加载文章数据失败:', error)
+    Message.error('加载文章数据失败')
+    router.push('/article-management')
+  }
 }
 
 const formModel = reactive({
@@ -121,13 +120,24 @@ const handleSubmit = async () => {
 
   loading.value = true
   try {
-    console.log('提交的文章数据:', formModel)
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    if (isEditMode.value) {
+      await updateArticle(Number(route.params.id), {
+        title: formModel.title,
+        description: formModel.description,
+        content: formModel.content
+      })
+    } else {
+      await createArticle({
+        title: formModel.title,
+        description: formModel.description,
+        content: formModel.content
+      })
+    }
     isSubmitted.value = true
     showSuccessModal.value = true
-  } catch (error) {
+  } catch (error: any) {
     console.error('发布失败:', error)
-    Message.error('发布失败，请检查网络或重试')
+    Message.error(error.message || '发布失败，请检查网络或重试')
   } finally {
     loading.value = false
   }
@@ -139,7 +149,7 @@ const handleCancel = () => {
 
 const handleCloseModal = () => {
   showSuccessModal.value = false
-  router.push(isEditMode.value ? '/article-management' : '/')
+  router.push('/article-management')
 }
 </script>
 
