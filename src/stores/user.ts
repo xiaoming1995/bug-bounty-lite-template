@@ -67,6 +67,20 @@ export const useUserStore = defineStore('user', {
     },
 
     /**
+     * 更新用户头像
+     */
+    updateAvatar(avatarUrl: string, avatarId?: number) {
+      if (this.userInfo) {
+        this.userInfo = {
+          ...this.userInfo,
+          avatar: avatarUrl,
+          avatar_id: avatarId
+        }
+        localStorage.setItem('userInfo', JSON.stringify(this.userInfo))
+      }
+    },
+
+    /**
      * 检查 token 是否过期
      */
     isTokenExpired(): boolean {

@@ -1,11 +1,31 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import Header from './Public/Header.vue'
 import { getUserInfo } from '@/api/auth'
+import { getActiveAvatars, selectAvatar, type Avatar } from '@/api/avatar'
+import { getReports, type Report } from '@/api/report'
+import { useUserStore } from '@/stores/user'
+import { get } from '@/utils/request'
+import { CONFIG_API } from '@/api/config'
+
+const router = useRouter()
+const userStore = useUserStore()
+
+// 危害等级配置类型
+interface SeverityLevel {
+  id: number
+  config_key: string
+  config_value: string
+}
+
+// 危害等级配置列表
+const severityLevels = ref<SeverityLevel[]>([])
 
 // 用户信息数据
 const userInfo = reactive({
   avatar: '',
+  avatarId: 0,
   name: '',
   email: '',
   phone: '',
@@ -35,7 +55,9 @@ const passwordForm = reactive({
 const loading = ref(false)
 const editMode = ref(false)
 const showPasswordModal = ref(false)
-const avatarUploadRef = ref()
+const showAvatarPicker = ref(false)
+const avatarList = ref<Avatar[]>([])
+const avatarLoading = ref(false)
 
 // Toast 提示状态
 const toast = reactive({
@@ -81,50 +103,19 @@ const rankingInfo = ref({
 })
 
 // 最近提交数据
-const recentSubmissions = ref([
-  { 
-    id: 1, 
-    title: 'SQL注入漏洞 - 用户登录接口', 
-    severity: 'high', 
-    status: 'confirmed', 
-    time: '2天前',
-    points: 500
-  },
-  { 
-    id: 2, 
-    title: 'XSS跨站脚本攻击', 
-    severity: 'medium', 
-    status: 'pending', 
-    time: '5天前',
-    points: 0
-  },
-  { 
-    id: 3, 
-    title: '敏感信息泄露', 
-    severity: 'low', 
-    status: 'fixed', 
-    time: '1周前',
-    points: 200
-  },
-  { 
-    id: 4, 
-    title: 'CSRF跨站请求伪造', 
-    severity: 'medium', 
-    status: 'rejected', 
-    time: '2周前',
-    points: 0
-  }
-])
+const recentSubmissions = ref<Report[]>([])
+const submissionsLoading = ref(false)
 
 // 获取状态文本和样式
 const getStatusInfo = (status: string) => {
   const statusMap: Record<string, { text: string; color: string; bg: string }> = {
-    'confirmed': { text: '已确认', color: '#059669', bg: '#ecfdf5' },
-    'pending': { text: '审核中', color: '#d97706', bg: '#fffbeb' },
-    'fixed': { text: '已修复', color: '#0284c7', bg: '#f0f9ff' },
-    'rejected': { text: '已拒绝', color: '#dc2626', bg: '#fef2f2' }
+    // 后端状态: Pending(待审) -> Triaged(已确) -> Resolved(已修) -> Closed(关闭)
+    'Pending': { text: '待审核', color: '#d97706', bg: '#fffbeb' },
+    'Triaged': { text: '已确认', color: '#059669', bg: '#ecfdf5' },
+    'Resolved': { text: '已修复', color: '#0284c7', bg: '#f0f9ff' },
+    'Closed': { text: '已关闭', color: '#6b7280', bg: '#f3f4f6' }
   }
-  return statusMap[status] || { text: '未知', color: '#6b7280', bg: '#f3f4f6' }
+  return statusMap[status] || { text: status || '未知', color: '#6b7280', bg: '#f3f4f6' }
 }
 
 const getSeverityInfo = (severity: string) => {
@@ -135,6 +126,77 @@ const getSeverityInfo = (severity: string) => {
     'low': { text: '低危', color: '#059669' }
   }
   return severityMap[severity] || { text: '未知', color: '#6b7280' }
+}
+
+// 根据危害等级 key 获取颜色
+const getSeverityColor = (severityKey?: string) => {
+  const colorMap: Record<string, string> = {
+    'CRITICAL': '#7c3aed',
+    'HIGH': '#dc2626',
+    'MEDIUM': '#d97706',
+    'LOW': '#059669'
+  }
+  return colorMap[severityKey || ''] || '#6b7280'
+}
+
+// 格式化时间为相对时间
+const formatTime = (dateStr: string) => {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  
+  if (days === 0) return '今天'
+  if (days === 1) return '昨天'
+  if (days < 7) return `${days}天前`
+  if (days < 30) return `${Math.floor(days / 7)}周前`
+  if (days < 365) return `${Math.floor(days / 30)}个月前`
+  return `${Math.floor(days / 365)}年前`
+}
+
+// 获取最近提交的报告
+const fetchRecentSubmissions = async () => {
+  submissionsLoading.value = true
+  try {
+    const reports = await getReports({ page: 1, page_size: 5 })
+    console.log('获取到的报告数据:', reports)
+    recentSubmissions.value = reports
+  } catch (error) {
+    console.error('获取最近提交失败:', error)
+  } finally {
+    submissionsLoading.value = false
+  }
+}
+
+// 加载危害等级配置
+const loadSeverityLevels = async () => {
+  try {
+    const response = await get<SeverityLevel[] | { list: SeverityLevel[] }>(CONFIG_API.SEVERITY_LEVEL)
+    const levels = Array.isArray(response) ? response : (response?.list || [])
+    severityLevels.value = levels
+  } catch (error) {
+    console.error('加载危害等级配置失败:', error)
+  }
+}
+
+// 根据 self_assessment_id 获取危害等级名称
+const getSeverityLevelName = (id?: number | null) => {
+  if (!id) return '未评估'
+  const level = severityLevels.value.find(l => l.id === id)
+  return level?.config_value || '未评估'
+}
+
+// 根据 self_assessment_id 获取危害等级颜色
+const getSeverityLevelColor = (id?: number | null) => {
+  if (!id) return '#6b7280'
+  const level = severityLevels.value.find(l => l.id === id)
+  const colorMap: Record<string, string> = {
+    'CRITICAL': '#7c3aed',
+    'HIGH': '#dc2626',
+    'MEDIUM': '#d97706',
+    'LOW': '#059669'
+  }
+  return colorMap[level?.config_key || ''] || '#6b7280'
 }
 
 // 方法
@@ -182,18 +244,46 @@ const handleSave = async () => {
   }
 }
 
-const handleAvatarUpload = () => {
-  avatarUploadRef.value?.click()
+// 打开头像选择器
+const handleAvatarPicker = async () => {
+  showAvatarPicker.value = true
+  if (avatarList.value.length === 0) {
+    await fetchAvatarList()
+  }
 }
 
-const onAvatarChange = (event: Event) => {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      userInfo.avatar = e.target?.result as string
-    }
-    reader.readAsDataURL(file)
+// 获取可用头像列表
+const fetchAvatarList = async () => {
+  avatarLoading.value = true
+  try {
+    const avatars = await getActiveAvatars()
+    avatarList.value = avatars
+  } catch (error) {
+    console.error('获取头像列表失败:', error)
+    showToast('获取头像列表失败', 'error')
+  } finally {
+    avatarLoading.value = false
+  }
+}
+
+// 选择头像
+const handleSelectAvatar = async (avatar: Avatar) => {
+  try {
+    loading.value = true
+    await selectAvatar(avatar.id)
+    userInfo.avatar = avatar.url
+    userInfo.avatarId = avatar.id
+    
+    // 同步更新 userStore 中的头像，以便 Header 右上角同步显示
+    userStore.updateAvatar(avatar.url, avatar.id)
+    
+    showAvatarPicker.value = false
+    showToast('头像更新成功！', 'success')
+  } catch (error: any) {
+    console.error('更新头像失败:', error)
+    showToast('更新头像失败：' + (error.message || '请稍后重试'), 'error')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -250,6 +340,10 @@ const fetchUserProfile = async () => {
     const response = await getUserInfo() as any
     const userData = response.data || response
     
+    // 获取头像 URL
+    const avatarUrl = userData.avatar?.url || ''
+    const avatarId = userData.avatar_id || 0
+    
     // 填充用户信息
     Object.assign(userInfo, {
       name: userData.name || '',
@@ -258,8 +352,15 @@ const fetchUserProfile = async () => {
       department: userData.org?.name || '未分配',
       lastLogin: userData.last_login_at ? new Date(userData.last_login_at).toLocaleString('zh-CN') : '暂无记录',
       bio: userData.bio || '',
+      avatar: avatarUrl,
+      avatarId: avatarId,
       status: '在线'
     })
+    
+    // 同步更新 userStore 中的头像，确保 Header 能读取到最新头像
+    if (avatarUrl) {
+      userStore.updateAvatar(avatarUrl, avatarId)
+    }
     
     // 同步到表单
     Object.assign(formData, {
@@ -277,9 +378,11 @@ const fetchUserProfile = async () => {
   }
 }
 
-// 页面加载时获取用户信息
-onMounted(() => {
+// 页面加载时获取用户信息、危害等级配置和最近提交
+onMounted(async () => {
+  await loadSeverityLevels() // 先加载危害等级配置
   fetchUserProfile()
+  fetchRecentSubmissions()
 })
 </script>
 
@@ -299,15 +402,8 @@ onMounted(() => {
                 :img-src="userInfo.avatar"
                 :icon="!userInfo.avatar ? 'user' : undefined"
               />
-              <input
-                ref="avatarUploadRef"
-                type="file"
-                accept="image/*"
-                @change="onAvatarChange"
-                hidden
-              />
-              <button class="avatar-edit" @click="handleAvatarUpload">
-                <d-icon name="camera" size="14px" />
+              <button class="avatar-edit" @click="handleAvatarPicker" title="修改头像">
+                <d-icon name="edit" size="16px" color="#ffffff" />
               </button>
             </div>
             
@@ -397,22 +493,32 @@ onMounted(() => {
               </router-link>
             </div>
             <div class="submissions-list">
+              <div v-if="submissionsLoading" class="submissions-loading">
+                <div class="loading-spinner"></div>
+                <span>加载中...</span>
+              </div>
+              <div v-else-if="recentSubmissions.length === 0" class="submissions-empty">
+                <d-icon name="file" size="32px" />
+                <span>暂无提交记录</span>
+              </div>
               <div 
+                v-else
                 v-for="item in recentSubmissions" 
                 :key="item.id" 
                 class="submission-item"
                 :class="item.status"
+                @click="router.push('/database/detail/' + item.id)"
               >
                 <div class="submission-main">
-                  <div class="submission-title">{{ item.title }}</div>
+                  <div class="submission-title">{{ item.vulnerability_name }}</div>
                   <div class="submission-meta">
                     <span 
                       class="severity-tag" 
-                      :style="{ color: getSeverityInfo(item.severity).color }"
+                      :style="{ color: getSeverityLevelColor(item.self_assessment_id) }"
                     >
-                      {{ getSeverityInfo(item.severity).text }}
+                      {{ getSeverityLevelName(item.self_assessment_id) }}
                     </span>
-                    <span class="submission-time">{{ item.time }}</span>
+                    <span class="submission-time">{{ formatTime(item.created_at) }}</span>
                   </div>
                 </div>
                 <div class="submission-status">
@@ -425,7 +531,6 @@ onMounted(() => {
                   >
                     {{ getStatusInfo(item.status).text }}
                   </span>
-                  <span v-if="item.points > 0" class="points-earned">+{{ item.points }}</span>
                 </div>
               </div>
             </div>
@@ -539,6 +644,49 @@ onMounted(() => {
     </div>
   </Teleport>
 
+  <!-- 头像选择弹窗 -->
+  <Teleport to="body">
+    <div v-if="showAvatarPicker" class="custom-modal-overlay" @click.self="showAvatarPicker = false">
+      <div class="custom-modal avatar-picker-modal">
+        <div class="modal-header">
+          <h3>选择头像</h3>
+          <button class="close-btn" @click="showAvatarPicker = false">
+            <d-icon name="close" />
+          </button>
+        </div>
+        
+        <div class="avatar-picker-content">
+          <div v-if="avatarLoading" class="avatar-loading">
+            <div class="loading-spinner"></div>
+            <span>加载头像中...</span>
+          </div>
+          <div v-else-if="avatarList.length === 0" class="avatar-empty">
+            <d-icon name="image" size="48px" />
+            <span>暂无可用头像</span>
+          </div>
+          <div v-else class="avatar-grid">
+            <div 
+              v-for="avatar in avatarList" 
+              :key="avatar.id" 
+              class="avatar-item"
+              :class="{ active: userInfo.avatarId === avatar.id }"
+              @click="handleSelectAvatar(avatar)"
+            >
+              <img :src="avatar.url" :alt="avatar.name" />
+              <div class="avatar-check" v-if="userInfo.avatarId === avatar.id">
+                <d-icon name="right" size="16px" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="modal-btn secondary" @click="showAvatarPicker = false">关闭</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
   <!-- Toast 提示组件 -->
   <Teleport to="body">
     <Transition name="toast">
@@ -598,26 +746,59 @@ onMounted(() => {
   position: relative;
   flex-shrink: 0;
 
+  // 头像编辑按钮 - 更加明显的样式
   .avatar-edit {
     position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 28px;
-    height: 28px;
+    bottom: -4px;
+    right: -4px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background: #5e7ce0;
+    background: linear-gradient(135deg, #5e7ce0 0%, #7c3aed 100%);
     color: #fff;
-    border: 2px solid #fff;
+    border: 3px solid #fff;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 
+      0 4px 12px rgba(94, 124, 224, 0.4),
+      0 0 0 0 rgba(94, 124, 224, 0.4);
+    z-index: 10;
+
+    // 呼吸动画提示用户可点击
+    animation: breathe 2s ease-in-out infinite;
 
     &:hover {
-      background: #4c6bcf;
-      transform: scale(1.1);
+      background: linear-gradient(135deg, #4c6bcf 0%, #6b2dc9 100%);
+      transform: scale(1.15) rotate(15deg);
+      box-shadow: 
+        0 6px 20px rgba(94, 124, 224, 0.5),
+        0 0 0 4px rgba(94, 124, 224, 0.2);
     }
+
+    &:active {
+      transform: scale(1.05);
+    }
+
+    // 图标样式
+    :deep(.devui-icon) {
+      font-size: 16px;
+    }
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    box-shadow: 
+      0 4px 12px rgba(94, 124, 224, 0.4),
+      0 0 0 0 rgba(94, 124, 224, 0.4);
+  }
+  50% {
+    box-shadow: 
+      0 4px 12px rgba(94, 124, 224, 0.4),
+      0 0 0 6px rgba(94, 124, 224, 0.15);
   }
 }
 
@@ -872,6 +1053,27 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.submissions-loading,
+.submissions-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  gap: 12px;
+  color: #64748b;
+  font-size: 14px;
+
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #5e7ce0;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
 }
 
 .submission-item {
@@ -1478,5 +1680,149 @@ onMounted(() => {
 @keyframes toastOut {
   from { opacity: 1; transform: translateX(-50%) translateY(0); }
   to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+}
+
+// 头像选择器弹窗样式
+.avatar-picker-modal {
+  width: 520px;
+  max-width: 90vw;
+}
+
+.avatar-picker-content {
+  padding: 20px;
+  min-height: 200px;
+}
+
+.avatar-loading,
+.avatar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  gap: 12px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #5e7ce0;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 20px;
+  padding: 8px;
+}
+
+.avatar-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 4px solid transparent;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+
+  // 悬停效果
+  &:hover {
+    border-color: rgba(94, 124, 224, 0.5);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 24px rgba(94, 124, 224, 0.25);
+
+    img {
+      transform: scale(1.08);
+    }
+  }
+
+  // 选中效果 - 更加明显
+  &.active {
+    border-color: #5e7ce0;
+    background: linear-gradient(135deg, #5e7ce0 0%, #7c3aed 100%);
+    transform: translateY(-2px);
+    box-shadow: 
+      0 0 0 4px rgba(94, 124, 224, 0.2),
+      0 8px 20px rgba(94, 124, 224, 0.35);
+
+    img {
+      transform: scale(1.05);
+    }
+
+    // 选中时显示勾选标记
+    .avatar-check {
+      display: flex;
+      animation: checkPop 0.3s ease-out;
+    }
+
+    // 选中后的光晕动画
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(94, 124, 224, 0.3) 0%, rgba(124, 58, 237, 0.3) 100%);
+      z-index: -1;
+      animation: glowPulse 2s ease-in-out infinite;
+    }
+  }
+}
+
+.avatar-check {
+  display: none;
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+  z-index: 10;
+}
+
+@keyframes checkPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 </style>

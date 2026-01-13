@@ -30,9 +30,15 @@ const userStore = useUserStore()
 
 // 从 store 获取用户信息
 const userInfo = computed(() => {
+  const user = userStore.userInfo
+  // 头像可能是对象（user.avatar.url）或直接是字符串
+  let avatarUrl = ''
+  if (user?.avatar) {
+    avatarUrl = typeof user.avatar === 'string' ? user.avatar : user.avatar.url || ''
+  }
   return {
-    name: userStore.userInfo?.name || userStore.userInfo?.username || '安全研究员',
-    avatar: userStore.userInfo?.avatar || ''
+    name: user?.name || user?.username || '安全研究员',
+    avatar: avatarUrl
   }
 })
 
