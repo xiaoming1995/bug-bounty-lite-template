@@ -4,7 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
 import { get, post, upload } from '../utils/request'
-import { PROJECT_API, REPORT_API, CONFIG_API } from '../api/config'
+import { REPORT_API, CONFIG_API } from '../api/config'
+import { getAcceptedProjects } from '../api/project-hall'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
@@ -91,13 +92,13 @@ interface ProjectResponse {
   total: number
 }
 
-// 加载项目列表
+// 加载项目列表（只加载用户已接受任务的项目）
 const loadProjects = async () => {
   projectLoading.value = true
   try {
-    const response = await get<ProjectResponse>(PROJECT_API.LIST)
+    const response = await getAcceptedProjects()
     
-    // 解析返回数据：{ list: [...], page: number, total: number }
+    // 解析返回数据：{ list: [...], total: number }
     const projects = response?.list || []
     
     // 检查数据是否有效
@@ -108,8 +109,9 @@ const loadProjects = async () => {
       }))
       projectNameOptions.value = options
     } else {
-      // 响应为空时显示错误
-      handleProjectLoadFailed()
+      // 没有已接受的项目，显示提示
+      projectNameOptions.value = []
+      // 不显示错误，因为可能用户确实没有接受任何任务
     }
   } catch (error) {
     console.error('加载项目列表失败:', error)

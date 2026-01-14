@@ -27,6 +27,8 @@ export interface Article {
     author?: ArticleAuthor
     status: 'pending' | 'approved' | 'rejected'
     reject_reason?: string
+    category: string
+    is_featured: boolean
     views: number
     likes: number
     created_at: string
@@ -48,6 +50,7 @@ export interface CreateArticleRequest {
     title: string
     description: string
     content: string
+    category: string
 }
 
 /**
@@ -57,6 +60,7 @@ export interface UpdateArticleRequest {
     title: string
     description: string
     content: string
+    category: string
 }
 
 /**
@@ -116,9 +120,91 @@ export const getPublishedArticles = async (): Promise<Article[]> => {
 }
 
 /**
+ * 获取精选文章
+ */
+export const getFeaturedArticles = async (limit: number = 3): Promise<Article[]> => {
+    const response = await get<ArticlesResponse>(`${BASE_URL}/public/featured?limit=${limit}`)
+    return response.data || []
+}
+
+/**
+ * 获取热门文章
+ */
+export const getHotArticles = async (limit: number = 3): Promise<Article[]> => {
+    const response = await get<ArticlesResponse>(`${BASE_URL}/public/hot?limit=${limit}`)
+    return response.data || []
+}
+
+/**
  * 审核文章（管理员）
  */
 export const reviewArticle = async (id: number, data: ReviewArticleRequest): Promise<Article> => {
     const response = await put<{ message: string; data: Article }>(`/v1/admin/articles/${id}/review`, data)
     return response.data
+}
+
+/**
+ * 设置精选状态（管理员）
+ */
+export const setFeatured = async (id: number, featured: boolean): Promise<void> => {
+    await put(`/v1/admin/articles/${id}/featured`, { featured })
+}
+
+/**
+ * 切换点赞状态
+ */
+export const toggleLike = async (id: number): Promise<{ liked: boolean; like_count: number }> => {
+    const response = await post<{ message: string; liked: boolean; like_count: number }>(`${BASE_URL}/${id}/like`, {})
+    return { liked: response.liked, like_count: response.like_count }
+}
+
+/**
+ * 获取点赞状态
+ */
+export const getLikeStatus = async (id: number): Promise<{ liked: boolean; like_count: number }> => {
+    const response = await get<{ liked: boolean; like_count: number }>(`${BASE_URL}/${id}/like`)
+    return response
+}
+
+/**
+ * 评论接口
+ */
+export interface ArticleComment {
+    id: number
+    article_id: number
+    user_id: number
+    content: string
+    created_at: string
+    user?: {
+        id: number
+        username: string
+        name: string
+        avatar?: {
+            id: number
+            url: string
+        }
+    }
+}
+
+/**
+ * 获取评论列表
+ */
+export const getComments = async (id: number): Promise<ArticleComment[]> => {
+    const response = await get<{ data: ArticleComment[]; total: number }>(`${BASE_URL}/${id}/comments`)
+    return response.data || []
+}
+
+/**
+ * 发表评论
+ */
+export const addComment = async (id: number, content: string): Promise<ArticleComment> => {
+    const response = await post<{ message: string; data: ArticleComment }>(`${BASE_URL}/${id}/comments`, { content })
+    return response.data
+}
+
+/**
+ * 删除评论
+ */
+export const deleteComment = async (articleId: number, commentId: number): Promise<void> => {
+    await del(`${BASE_URL}/${articleId}/comments/${commentId}`)
 }

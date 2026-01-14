@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
@@ -18,6 +18,12 @@ interface UserArticle {
 
 const router = useRouter()
 const loading = ref(true)
+
+// 分页配置
+const pagination = ref({
+  current: 1,
+  pageSize: 10,
+})
 
 // 用户发布的文章数据
 const myArticles = ref<UserArticle[]>([])
@@ -44,6 +50,31 @@ const fetchArticles = async () => {
     loading.value = false
   }
 }
+
+// 分页后的文章列表
+const paginatedArticles = computed(() => {
+  const start = (pagination.value.current - 1) * pagination.value.pageSize
+  const end = start + pagination.value.pageSize
+  return myArticles.value.slice(start, end)
+})
+
+// 总条数
+const total = computed(() => myArticles.value.length)
+
+// 页码变化
+const handlePageChange = (page: number) => {
+  pagination.value.current = page
+}
+
+// 每页条数变化
+const handlePageSizeChange = (size: number) => {
+  pagination.value.pageSize = size
+  pagination.value.current = 1 // 重置到第一页
+}
+
+// 每页条数选项
+const pageSizeOptions = [5, 10, 20, 50]
+
 
 const getStatusType = (status: string) => {
   switch (status) {
@@ -123,7 +154,7 @@ onMounted(() => {
             <div class="col-actions">操作</div>
           </div>
           
-          <div v-for="article in myArticles" :key="article.id" class="article-item">
+          <div v-for="article in paginatedArticles" :key="article.id" class="article-item">
             <div class="col-main">
               <h3 class="title">{{ article.title }}</h3>
               <div v-if="article.status === 'rejected'" class="reject-tip">
@@ -171,6 +202,19 @@ onMounted(() => {
               </button>
             </div>
           </div>
+        </div>
+        
+        <!-- 分页 -->
+        <div v-if="total > 0" class="pagination-wrapper">
+          <div class="total-info">共 {{ total }} 条</div>
+          <d-pagination
+            v-model:pageIndex="pagination.current"
+            v-model:pageSize="pagination.pageSize"
+            :total="total"
+            :page-sizes="pageSizeOptions"
+            :can-change-page-size="true"
+            :show-total="false"
+          />
         </div>
       </div>
     </div>
@@ -382,6 +426,19 @@ onMounted(() => {
       color: #fff;
       &:hover { background: #dc2626; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2); }
     }
+  }
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-top: 1px solid #f1f5f9;
+  
+  .total-info {
+    font-size: 14px;
+    color: #64748b;
   }
 }
 </style>

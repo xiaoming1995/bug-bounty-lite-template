@@ -1,120 +1,60 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Header from './Public/Header.vue'
+import { getArticle, getFeaturedArticles, getHotArticles, toggleLike as apiToggleLike, getLikeStatus, getComments, addComment, type Article, type ArticleComment } from '@/api/article'
 
-// 文章详情类型
-interface ArticleDetail {
+// 页面数据类型
+interface DisplayArticle {
   id: number
   title: string
   content: string
   author: string
   avatar?: string
+  isAdmin?: boolean
   views: number
   likes: number
   publishDate: string
   category: string
 }
 
-// 评论类型
-interface Comment {
-  id: number
-  author: string
-  content: string
-  date: string
-  likes: number
-}
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 
 // 文章详情
-const article = ref<ArticleDetail | null>(null)
+const article = ref<DisplayArticle | null>(null)
 
 // 点赞状态
 const liked = ref(false)
+const likeCount = ref(0)
+const isLiking = ref(false)
 
 // 评论列表
-const comments = ref<Comment[]>([
-  { id: 1, author: '安全小白', content: '写得非常详细，对新手很友好！', date: '2026-01-06', likes: 12 },
-  { id: 2, author: '渗透测试员', content: '实战案例很有价值，已收藏。', date: '2026-01-05', likes: 8 },
-  { id: 3, author: '学习者', content: '感谢分享，期待更多教程。', date: '2026-01-04', likes: 5 }
-])
+const comments = ref<ArticleComment[]>([])
 
 // 新评论内容
 const newComment = ref('')
 const submittingComment = ref(false)
 
-// 文章列表（同步 Mock 数据）
-const articleList = ref([
-  {
-    id: 1,
-    title: 'Web安全入门：SQL注入攻击原理与防护',
-    description: '本文详细介绍SQL注入的基本原理、常见攻击手法以及有效的防护措施，帮助开发者构建更安全的Web应用。',
-    author: '安全小白',
-    views: 3256,
-    publishDate: '2026-01-05',
-    category: 'Web安全',
-    hot: true
-  },
-  {
-    id: 2,
-    title: 'XSS跨站脚本攻击全解析',
-    description: '深入浅出讲解反射型、存储型、DOM型XSS的区别与利用方式，以及CSP等现代防护技术。',
-    author: '渗透达人',
-    views: 2891,
-    publishDate: '2026-01-04',
-    category: 'Web安全',
-    featured: true
-  },
-  {
-    id: 3,
-    title: 'Burp Suite实战技巧分享',
-    description: '从安装配置到高级用法，手把手教你使用Web安全测试神器Burp Suite进行渗透测试。',
-    author: '工具专家',
-    views: 4512,
-    publishDate: '2026-01-03',
-    category: '工具教程',
-    hot: true,
-    featured: true
-  },
-  {
-    id: 4,
-    title: '企业安全体系建设指南',
-    description: '结合实际案例，探讨如何从零开始构建企业级安全防护体系，包括组织架构、流程规范等。',
-    author: '安全架构师',
-    views: 1876,
-    publishDate: '2026-01-02',
-    category: '安全管理'
-  },
-  {
-    id: 5,
-    title: 'CTF入门：从零开始的夺旗之旅',
-    description: '为CTF新手准备的入门指南，涵盖Web、Crypto、Pwn等方向的基础知识和练习平台推荐。',
-    author: 'CTF爱好者',
-    views: 5234,
-    publishDate: '2026-01-01',
-    category: 'CTF',
-    featured: true
-  }
-])
+// 推荐文章类型（与首页一致）
+interface RecommendArticle {
+  id: number
+  title: string
+  views: number
+  author?: string
+}
 
 // 热门推荐
-const hotArticles = computed(() => {
-  return articleList.value.filter(a => a.hot && a.id !== article.value?.id).slice(0, 3)
-})
+const hotArticles = ref<RecommendArticle[]>([])
 
 // 精选推荐
-const featuredArticles = computed(() => {
-  return articleList.value.filter(a => a.featured && a.id !== article.value?.id).slice(0, 3)
-})
+const featuredArticles = ref<RecommendArticle[]>([])
 
 // 查看文章详情
 const viewArticle = (id: number) => {
   router.push(`/learning-center/${id}`)
-  loadArticle(id.toString())
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // 格式化浏览量
@@ -128,84 +68,76 @@ const formatViews = (views: number) => {
   return views.toString()
 }
 
+// 将 API 返回的文章转换为显示格式
+const transformArticle = (data: Article): DisplayArticle => ({
+  id: data.id,
+  title: data.title,
+  content: data.content,
+  author: data.author?.name || data.author?.username || (data.author_id === 0 ? '管理员' : '匿名'),
+  avatar: data.author?.avatar?.url,
+  isAdmin: data.author_id === 0,
+  views: data.views,
+  likes: data.likes,
+  publishDate: data.created_at,
+  category: data.category || '技术分享'
+})
+
+// 将 API 返回的文章转换为推荐格式
+const transformRecommend = (data: Article): RecommendArticle => ({
+  id: data.id,
+  title: data.title,
+  views: data.views,
+  author: data.author?.name || data.author?.username || (data.author_id === 0 ? '管理员' : '匿名')
+})
+
 // 加载文章详情
 const loadArticle = async (id: string) => {
   loading.value = true
   
-  await new Promise(resolve => setTimeout(resolve, 500))
-  
-  article.value = {
-    id: parseInt(id),
-    title: 'Web安全入门：SQL注入攻击原理与防护',
-    content: `
-## 什么是SQL注入？
-
-SQL注入（SQL Injection）是一种常见的Web安全漏洞，攻击者通过在用户输入中插入恶意SQL代码，从而操纵后端数据库执行非预期的操作。
-
-## 攻击原理
-
-当应用程序直接将用户输入拼接到SQL查询语句中，而没有进行适当的过滤或转义时，就可能产生SQL注入漏洞。
-
-\`\`\`sql
--- 正常查询
-SELECT * FROM users WHERE username = 'admin' AND password = '123456'
-
--- 注入攻击
-SELECT * FROM users WHERE username = 'admin' OR '1'='1' -- ' AND password = ''
-\`\`\`
-
-## 常见攻击类型
-
-### 1. 联合查询注入（Union-based）
-
-通过UNION语句将恶意查询结果合并到正常查询结果中。
-
-### 2. 报错注入（Error-based）
-
-利用数据库的报错信息来获取敏感数据。
-
-### 3. 盲注（Blind SQL Injection）
-
-当页面不显示查询结果或错误信息时，通过条件判断来逐步推断数据。
-
-## 防护措施
-
-### 1. 参数化查询
-
-使用预编译语句（Prepared Statements）是最有效的防护方法。
-
-\`\`\`python
-# 不安全的写法
-cursor.execute("SELECT * FROM users WHERE id = " + user_id)
-
-# 安全的写法
-cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-\`\`\`
-
-### 2. 输入验证
-
-对用户输入进行严格的类型和格式验证。
-
-### 3. 最小权限原则
-
-数据库账户应只拥有必要的最小权限。
-
-### 4. Web应用防火墙（WAF）
-
-部署WAF可以检测和阻止常见的SQL注入攻击。
-
-## 总结
-
-SQL注入是一种历史悠久但仍然常见的漏洞类型。开发者应始终对用户输入保持警惕，采用安全的编程实践来防止此类攻击。
-    `,
-    author: '安全小白',
-    views: 3256,
-    likes: 128,
-    publishDate: '2026-01-05',
-    category: 'Web安全'
+  try {
+    // 获取文章详情（增加浏览量）
+    const data = await getArticle(parseInt(id), true)
+    article.value = transformArticle(data)
+  } catch (error) {
+    console.error('获取文章详情失败:', error)
+    article.value = null
+  } finally {
+    loading.value = false
   }
   
-  loading.value = false
+  // 分开获取推荐列表、点赞状态和评论，不影响主内容显示
+  const articleId = parseInt(id)
+  
+  // 获取推荐列表
+  try {
+    const [featured, hot] = await Promise.all([
+      getFeaturedArticles(3),
+      getHotArticles(3)
+    ])
+    featuredArticles.value = featured.map(transformRecommend)
+    hotArticles.value = hot.map(transformRecommend)
+  } catch (error) {
+    console.error('获取推荐列表失败:', error)
+    featuredArticles.value = []
+    hotArticles.value = []
+  }
+  
+  // 获取点赞状态
+  try {
+    const likeStatus = await getLikeStatus(articleId)
+    liked.value = likeStatus.liked
+    likeCount.value = likeStatus.like_count
+  } catch (error) {
+    console.error('获取点赞状态失败:', error)
+  }
+  
+  // 获取评论列表
+  try {
+    comments.value = await getComments(articleId)
+  } catch (error) {
+    console.error('获取评论列表失败:', error)
+    comments.value = []
+  }
 }
 
 // 返回列表
@@ -214,34 +146,38 @@ const goBack = () => {
 }
 
 // 点赞
-const toggleLike = () => {
-  if (!article.value) return
+const toggleLike = async () => {
+  if (!article.value || isLiking.value) return
   
-  if (liked.value) {
-    article.value.likes--
-  } else {
-    article.value.likes++
+  isLiking.value = true
+  try {
+    const result = await apiToggleLike(article.value.id)
+    liked.value = result.liked
+    likeCount.value = result.like_count
+  } catch (error) {
+    console.error('点赞失败:', error)
+  } finally {
+    isLiking.value = false
   }
-  liked.value = !liked.value
 }
 
 // 提交评论
-const submitComment = () => {
-  if (!newComment.value.trim()) return
+const submitComment = async () => {
+  if (!newComment.value.trim() || !article.value) return
   
   submittingComment.value = true
   
-  setTimeout(() => {
-    comments.value.unshift({
-      id: Date.now(),
-      author: '当前用户',
-      content: newComment.value,
-      date: new Date().toISOString().split('T')[0],
-      likes: 0
-    })
+  try {
+    await addComment(article.value.id, newComment.value)
+    // 重新加载评论列表以获取用户信息
+    comments.value = await getComments(article.value.id)
     newComment.value = ''
+  } catch (error: any) {
+    console.error('评论失败:', error)
+    alert(error.response?.data?.error || '评论失败，请先登录')
+  } finally {
     submittingComment.value = false
-  }, 500)
+  }
 }
 
 // 格式化日期
@@ -260,6 +196,14 @@ const formatNumber = (num: number) => {
   }
   return num.toString()
 }
+
+// 监听路由变化
+watch(() => route.params.id, (newId) => {
+  if (newId) {
+    loadArticle(newId as string)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+})
 
 onMounted(() => {
   const id = route.params.id as string
@@ -299,8 +243,10 @@ onMounted(() => {
                 <h1 class="article-title">{{ article.title }}</h1>
                 <div class="article-meta">
                   <div class="author-info">
-                    <div class="author-avatar">
-                      <d-icon name="user" size="16px" />
+                    <div class="author-avatar" :class="{ 'admin-avatar': article.isAdmin }">
+                      <img v-if="article.avatar" :src="article.avatar" class="avatar-img" alt="头像" />
+                      <d-icon v-else-if="article.isAdmin" name="shield" size="16px" />
+                      <d-icon v-else name="user" size="16px" />
                     </div>
                     <span class="author-name">{{ article.author }}</span>
                   </div>
@@ -327,7 +273,7 @@ onMounted(() => {
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                   </svg>
                   <span>{{ liked ? '已点赞' : '点赞' }}</span>
-                  <span class="like-count">{{ formatNumber(article.likes) }}</span>
+                  <span class="like-count">{{ formatNumber(likeCount) }}</span>
                 </button>
                 <span class="comment-count">
                   <d-icon name="message" />
@@ -357,18 +303,22 @@ onMounted(() => {
 
               <!-- 评论列表 -->
               <div class="comments-list">
-                <div v-for="comment in comments" :key="comment.id" class="comment-item">
-                  <div class="comment-avatar">
-                    <d-icon name="user" size="16px" />
-                  </div>
-                  <div class="comment-body">
-                    <div class="comment-header">
-                      <span class="comment-author">{{ comment.author }}</span>
-                      <span class="comment-date">{{ formatDate(comment.date) }}</span>
+                <template v-if="comments.length > 0">
+                  <div v-for="comment in comments" :key="comment.id" class="comment-item">
+                    <div class="comment-avatar">
+                      <img v-if="comment.user?.avatar?.url" :src="comment.user.avatar.url" class="avatar-img" alt="头像" />
+                      <d-icon v-else name="user" size="16px" />
                     </div>
-                    <p class="comment-content">{{ comment.content }}</p>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="comment-author">{{ comment.user?.name || comment.user?.username || '匿名用户' }}</span>
+                        <span class="comment-date">{{ formatDate(comment.created_at) }}</span>
+                      </div>
+                      <p class="comment-content">{{ comment.content }}</p>
+                    </div>
                   </div>
-                </div>
+                </template>
+                <div v-else class="empty-comments">暂无评论，来发表第一条评论吧！</div>
               </div>
             </section>
           </div>
@@ -382,15 +332,18 @@ onMounted(() => {
                 <span>热门推荐</span>
               </h4>
               <div class="recommend-list">
-                <div 
-                  v-for="(item, idx) in hotArticles" 
-                  :key="item.id"
-                  class="recommend-item"
-                  @click="viewArticle(item.id)"
-                >
-                  <span class="rank" :class="'rank-' + (idx + 1)">{{ idx + 1 }}</span>
-                  <span class="title">{{ item.title }}</span>
-                </div>
+                <template v-if="hotArticles.length > 0">
+                  <div 
+                    v-for="(item, idx) in hotArticles" 
+                    :key="item.id"
+                    class="recommend-item"
+                    @click="viewArticle(item.id)"
+                  >
+                    <span class="rank" :class="'rank-' + (idx + 1)">{{ idx + 1 }}</span>
+                    <span class="title">{{ item.title }}</span>
+                  </div>
+                </template>
+                <div v-else class="empty-tip">暂无热门文章</div>
               </div>
             </div>
 
@@ -401,15 +354,18 @@ onMounted(() => {
                 <span>精选推荐</span>
               </h4>
               <div class="recommend-list">
-                <div 
-                  v-for="item in featuredArticles" 
-                  :key="item.id"
-                  class="recommend-item featured"
-                  @click="viewArticle(item.id)"
-                >
-                  <span class="title">{{ item.title }}</span>
-                  <span class="views">{{ formatViews(item.views) }} 阅读</span>
-                </div>
+                <template v-if="featuredArticles.length > 0">
+                  <div 
+                    v-for="item in featuredArticles" 
+                    :key="item.id"
+                    class="recommend-item featured"
+                    @click="viewArticle(item.id)"
+                  >
+                    <span class="title">{{ item.title }}</span>
+                    <span class="views">{{ formatViews(item.views) }} 阅读</span>
+                  </div>
+                </template>
+                <div v-else class="empty-tip">暂无精选文章</div>
               </div>
             </div>
           </div>
@@ -582,6 +538,13 @@ onMounted(() => {
   }
 }
 
+.empty-tip {
+  font-size: 13px;
+  color: #94a3b8;
+  text-align: center;
+  padding: 16px 0;
+}
+
 .article-header {
   margin-bottom: 32px;
   padding-bottom: 24px;
@@ -640,6 +603,18 @@ onMounted(() => {
     align-items: center;
     justify-content: center;
     color: #5e7ce0;
+    overflow: hidden;
+    
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    &.admin-avatar {
+      background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);
+      color: #d97706;
+    }
   }
   
   .author-name {
@@ -862,6 +837,20 @@ onMounted(() => {
   justify-content: center;
   color: #5e7ce0;
   flex-shrink: 0;
+  overflow: hidden;
+  
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.empty-comments {
+  text-align: center;
+  color: #94a3b8;
+  padding: 32px 0;
+  font-size: 14px;
 }
 
 .comment-body {

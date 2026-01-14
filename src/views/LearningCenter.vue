@@ -2,20 +2,20 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Header from './Public/Header.vue'
+import { getPublishedArticles, getFeaturedArticles, getHotArticles, type Article } from '@/api/article'
 
-// 文章类型
-interface Article {
+// 页面数据类型
+interface DisplayArticle {
   id: number
   title: string
   description: string
   author: string
   avatar?: string
+  isAdmin?: boolean
   views: number
   publishDate: string
   category: string
-  cover?: string
   featured?: boolean
-  hot?: boolean
 }
 
 const router = useRouter()
@@ -25,91 +25,55 @@ const loading = ref(true)
 const pagination = ref({
   page: 1,
   pageSize: 5,
-  total: 12
+  total: 0
 })
 
-// 文章列表（Mock 数据）
-const articleList = ref<Article[]>([
-  {
-    id: 1,
-    title: 'Web安全入门：SQL注入攻击原理与防护',
-    description: '本文详细介绍SQL注入的基本原理、常见攻击手法以及有效的防护措施，帮助开发者构建更安全的Web应用。',
-    author: '安全小白',
-    views: 3256,
-    publishDate: '2026-01-05',
-    category: 'Web安全',
-    hot: true
-  },
-  {
-    id: 2,
-    title: 'XSS跨站脚本攻击全解析',
-    description: '深入浅出讲解反射型、存储型、DOM型XSS的区别与利用方式，以及CSP等现代防护技术。',
-    author: '渗透达人',
-    views: 2891,
-    publishDate: '2026-01-04',
-    category: 'Web安全',
-    featured: true
-  },
-  {
-    id: 3,
-    title: 'Burp Suite实战技巧分享',
-    description: '从安装配置到高级用法，手把手教你使用Web安全测试神器Burp Suite进行渗透测试。',
-    author: '工具专家',
-    views: 4512,
-    publishDate: '2026-01-03',
-    category: '工具教程',
-    hot: true,
-    featured: true
-  },
-  {
-    id: 4,
-    title: '企业安全体系建设指南',
-    description: '结合实际案例，探讨如何从零开始构建企业级安全防护体系，包括组织架构、流程规范等。',
-    author: '安全架构师',
-    views: 1876,
-    publishDate: '2026-01-02',
-    category: '安全管理'
-  },
-  {
-    id: 5,
-    title: 'CTF入门：从零开始的夺旗之旅',
-    description: '为CTF新手准备的入门指南，涵盖Web、Crypto、Pwn等方向的基础知识和练习平台推荐。',
-    author: 'CTF爱好者',
-    views: 5234,
-    publishDate: '2026-01-01',
-    category: 'CTF',
-    featured: true
-  },
-  {
-    id: 6,
-    title: '代码审计：PHP常见漏洞模式',
-    description: '总结PHP代码中常见的安全漏洞模式，包括文件包含、命令注入、反序列化等。',
-    author: '代码审计员',
-    views: 2345,
-    publishDate: '2025-12-30',
-    category: '代码审计'
-  },
-  {
-    id: 7,
-    title: '漏洞赏金猎人生存指南',
-    description: '分享参与Bug Bounty项目的经验，如何选择目标、提交高质量报告、与厂商沟通等。',
-    author: '赏金猎人',
-    views: 3890,
-    publishDate: '2025-12-29',
-    category: '漏洞挖掘',
-    hot: true
-  }
-])
+// 文章列表
+const articleList = ref<DisplayArticle[]>([])
 
 // 热门推荐
-const hotArticles = computed(() => {
-  return articleList.value.filter(a => a.hot).slice(0, 3)
-})
+const hotArticles = ref<DisplayArticle[]>([])
 
 // 精选推荐
-const featuredArticles = computed(() => {
-  return articleList.value.filter(a => a.featured).slice(0, 3)
+const featuredArticles = ref<DisplayArticle[]>([])
+
+// 将 API 返回的文章转换为显示格式
+const transformArticle = (article: Article): DisplayArticle => ({
+  id: article.id,
+  title: article.title,
+  description: article.description,
+  author: article.author?.name || article.author?.username || (article.author_id === 0 ? '管理员' : '匿名'),
+  avatar: article.author?.avatar?.url,
+  isAdmin: article.author_id === 0,
+  views: article.views,
+  publishDate: article.created_at,
+  category: article.category || '技术分享',
+  featured: article.is_featured
 })
+
+// 获取数据
+const fetchData = async () => {
+  loading.value = true
+  try {
+    // 并行获取所有数据
+    const [articles, featured, hot] = await Promise.all([
+      getPublishedArticles(),
+      getFeaturedArticles(3),
+      getHotArticles(3)
+    ])
+
+    // 转换数据格式
+    articleList.value = articles.map(transformArticle)
+    featuredArticles.value = featured.map(transformArticle)
+    hotArticles.value = hot.map(transformArticle)
+    
+    pagination.value.total = articleList.value.length
+  } catch (error) {
+    console.error('获取文章列表失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
 
 // 当前页文章
 const currentArticles = computed(() => {
@@ -154,9 +118,7 @@ const formatDate = (dateStr: string) => {
 }
 
 onMounted(() => {
-  setTimeout(() => {
-    loading.value = false
-  }, 400)
+  fetchData()
 })
 </script>
 
@@ -197,8 +159,10 @@ onMounted(() => {
                 <p class="article-desc">{{ article.description }}</p>
                 <div class="article-footer">
                   <div class="author-info">
-                    <div class="author-avatar">
-                      <d-icon name="user" size="14px" />
+                    <div class="author-avatar" :class="{ 'admin-avatar': article.isAdmin }">
+                      <img v-if="article.avatar" :src="article.avatar" class="avatar-img" alt="头像" />
+                      <d-icon v-else-if="article.isAdmin" name="shield" size="14px" />
+                      <d-icon v-else name="user" size="14px" />
                     </div>
                     <span class="author-name">{{ article.author }}</span>
                   </div>
@@ -257,15 +221,18 @@ onMounted(() => {
               <span>热门推荐</span>
             </h4>
             <div class="recommend-list">
-              <div 
-                v-for="(article, idx) in hotArticles" 
-                :key="article.id"
-                class="recommend-item"
-                @click="viewArticle(article.id)"
-              >
-                <span class="rank" :class="'rank-' + (idx + 1)">{{ idx + 1 }}</span>
-                <span class="title">{{ article.title }}</span>
-              </div>
+              <template v-if="hotArticles.length > 0">
+                <div 
+                  v-for="(article, idx) in hotArticles" 
+                  :key="article.id"
+                  class="recommend-item"
+                  @click="viewArticle(article.id)"
+                >
+                  <span class="rank" :class="'rank-' + (idx + 1)">{{ idx + 1 }}</span>
+                  <span class="title">{{ article.title }}</span>
+                </div>
+              </template>
+              <div v-else class="empty-tip">暂无热门文章</div>
             </div>
           </div>
 
@@ -276,15 +243,18 @@ onMounted(() => {
               <span>精选推荐</span>
             </h4>
             <div class="recommend-list">
-              <div 
-                v-for="article in featuredArticles" 
-                :key="article.id"
-                class="recommend-item featured"
-                @click="viewArticle(article.id)"
-              >
-                <span class="title">{{ article.title }}</span>
-                <span class="views">{{ formatViews(article.views) }} 阅读</span>
-              </div>
+              <template v-if="featuredArticles.length > 0">
+                <div 
+                  v-for="article in featuredArticles" 
+                  :key="article.id"
+                  class="recommend-item featured"
+                  @click="viewArticle(article.id)"
+                >
+                  <span class="title">{{ article.title }}</span>
+                  <span class="views">{{ formatViews(article.views) }} 阅读</span>
+                </div>
+              </template>
+              <div v-else class="empty-tip">暂无精选文章</div>
             </div>
           </div>
         </div>
@@ -426,6 +396,18 @@ onMounted(() => {
     align-items: center;
     justify-content: center;
     color: #5e7ce0;
+    overflow: hidden;
+    
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    &.admin-avatar {
+      background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);
+      color: #d97706;
+    }
   }
   
   .author-name {
@@ -628,6 +610,13 @@ onMounted(() => {
       color: #94a3b8;
     }
   }
+}
+
+.empty-tip {
+  font-size: 13px;
+  color: #94a3b8;
+  text-align: center;
+  padding: 16px 0;
 }
 
 @media (max-width: 900px) {

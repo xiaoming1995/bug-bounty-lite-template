@@ -1,59 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
-
-// 项目数据类型
-interface ProjectItem {
-  id: number
-  name: string
-  status: 'recruiting' | 'in_progress' | 'completed' | 'closed'
-  difficulty: 'easy' | 'medium' | 'hard' | 'expert'
-  deadline: string
-  description?: string
-}
+import { getAvailableProjects, acceptProjectTask, type ProjectItem } from '@/api/project-hall'
 
 const router = useRouter()
 const loading = ref(true)
 
-// 项目列表数据（Mock）
-const projectList = ref<ProjectItem[]>([
-  {
-    id: 1,
-    name: '某金融系统安全测试',
-    status: 'recruiting',
-    difficulty: 'hard',
-    deadline: '2026-02-15'
-  },
-  {
-    id: 2,
-    name: '电商平台渗透测试',
-    status: 'in_progress',
-    difficulty: 'medium',
-    deadline: '2026-01-30'
-  },
-  {
-    id: 3,
-    name: '政务系统安全评估',
-    status: 'recruiting',
-    difficulty: 'expert',
-    deadline: '2026-03-01'
-  },
-  {
-    id: 4,
-    name: '移动APP安全审计',
-    status: 'completed',
-    difficulty: 'easy',
-    deadline: '2026-01-10'
-  },
-  {
-    id: 5,
-    name: '物联网设备漏洞挖掘',
-    status: 'recruiting',
-    difficulty: 'hard',
-    deadline: '2026-02-28'
-  }
-])
+// 项目列表数据
+const projectList = ref<ProjectItem[]>([])
 
 // 状态映射
 const statusMap: Record<string, { label: string; class: string }> = {
@@ -71,6 +27,23 @@ const difficultyMap: Record<string, { label: string; class: string }> = {
   expert: { label: '专家', class: 'diff-expert' }
 }
 
+// 加载项目列表
+const loadProjects = async () => {
+  loading.value = true
+  try {
+    const res = await getAvailableProjects()
+    projectList.value = res.list || []
+  } catch (error) {
+    console.error('加载项目列表失败:', error)
+    Message({
+      type: 'error',
+      message: '加载项目列表失败，请刷新重试'
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
 // 查看项目详情
 const viewDetail = (id: number) => {
   router.push(`/project-hall/${id}`)
@@ -79,16 +52,36 @@ const viewDetail = (id: number) => {
 // 成功弹窗状态
 const successModalVisible = ref(false)
 const acceptedProjectName = ref('')
+const acceptingProjectId = ref<number | null>(null)
 
 // 接受任务
-const acceptTask = (project: ProjectItem) => {
-  if (project.status !== 'recruiting') {
+const acceptTask = async (project: ProjectItem) => {
+  if (project.status !== 'recruiting' || project.accepted) {
     return
   }
-  // TODO: 调用 API 接受任务
-  console.log('接受任务:', project.name)
-  acceptedProjectName.value = project.name
-  successModalVisible.value = true
+  
+  acceptingProjectId.value = project.id
+  
+  try {
+    await acceptProjectTask(project.id)
+    acceptedProjectName.value = project.name
+    successModalVisible.value = true
+    // 更新本地状态
+    const idx = projectList.value.findIndex(p => p.id === project.id)
+    if (idx !== -1) {
+      projectList.value[idx].accepted = true
+      projectList.value[idx].status = 'in_progress'  // 更新状态为进行中
+    }
+  } catch (error: unknown) {
+    console.error('接受任务失败:', error)
+    const errorMessage = error instanceof Error ? error.message : '接受任务失败，请重试'
+    Message({
+      type: 'error',
+      message: errorMessage
+    })
+  } finally {
+    acceptingProjectId.value = null
+  }
 }
 
 // 关闭弹窗
@@ -97,16 +90,26 @@ const closeSuccessModal = () => {
 }
 
 // 格式化日期
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return '暂无'
   const date = new Date(dateStr)
   return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
+// 获取按钮文本
+const getButtonText = (project: ProjectItem) => {
+  if (project.accepted) return '已接受'
+  if (project.status !== 'recruiting') return '不可接受'
+  return '接受任务'
+}
+
+// 判断按钮是否禁用
+const isButtonDisabled = (project: ProjectItem) => {
+  return project.accepted || project.status !== 'recruiting' || acceptingProjectId.value === project.id
+}
+
 onMounted(() => {
-  // 模拟加载
-  setTimeout(() => {
-    loading.value = false
-  }, 500)
+  loadProjects()
 })
 </script>
 
@@ -164,13 +167,14 @@ onMounted(() => {
               </button>
               <button 
                 class="btn btn-primary" 
-                :disabled="project.status !== 'recruiting'"
+                :class="{ 'btn-accepted': project.accepted }"
+                :disabled="isButtonDisabled(project)"
                 @click="acceptTask(project)"
               >
                 <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                <span>接受任务</span>
+                <span>{{ getButtonText(project) }}</span>
               </button>
             </div>
           </div>
@@ -427,6 +431,16 @@ onMounted(() => {
     &:disabled {
       background: #cbd5e1;
       cursor: not-allowed;
+    }
+    
+    &.btn-accepted {
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      cursor: default;
+      
+      &:disabled {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        opacity: 0.8;
+      }
     }
   }
   

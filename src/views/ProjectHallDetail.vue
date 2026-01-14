@@ -1,38 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Message } from 'vue-devui'
 import Header from './Public/Header.vue'
-
-// 项目详细信息类型
-interface ProjectDetail {
-  id: number
-  name: string
-  status: 'recruiting' | 'in_progress' | 'completed' | 'closed'
-  difficulty: 'easy' | 'medium' | 'hard' | 'expert'
-  deadline: string
-  description: string
-  publisher: {
-    name: string
-    company: string
-    avatar?: string
-    contact?: string
-  }
-  attachments: Array<{
-    name: string
-    size: string
-    type: string
-    url: string
-  }>
-  requirements: string[]
-  createdAt: string
-}
+import { getProjectDetail, acceptProjectTask, type ProjectDetail } from '@/api/project-hall'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
+const accepting = ref(false)
 
-// 项目详情数据（Mock）
+// 项目详情数据
 const projectDetail = ref<ProjectDetail | null>(null)
+const isAccepted = ref(false)
 
 // 状态映射
 const statusMap: Record<string, { label: string; class: string }> = {
@@ -50,69 +30,61 @@ const difficultyMap: Record<string, { label: string; class: string; stars: numbe
   expert: { label: '专家', class: 'diff-expert', stars: 4 }
 }
 
-// Mock 数据加载
+// 加载项目详情
 const loadProjectDetail = async (id: string) => {
   loading.value = true
   
-  // 模拟 API 请求
-  await new Promise(resolve => setTimeout(resolve, 600))
-  
-  // Mock 数据
-  projectDetail.value = {
-    id: parseInt(id),
-    name: '某金融系统安全测试',
-    status: 'recruiting',
-    difficulty: 'hard',
-    deadline: '2026-02-15',
-    description: `
-## 项目背景
-
-某大型金融机构需要对其核心业务系统进行全面的安全评估，包括但不限于网银系统、移动APP、API接口等进行渗透测试和漏洞挖掘。
-
-## 测试范围
-
-1. 网上银行系统（Web端）
-2. 手机银行APP（iOS/Android）
-3. 开放API接口（OAuth2.0认证）
-4. 后台管理系统
-
-## 测试要求
-
-- 需具备金融行业安全测试经验
-- 严格遵守保密协议
-- 所有测试需在授权范围内进行
-- 发现漏洞需及时上报，禁止利用
-    `,
-    publisher: {
-      name: '张经理',
-      company: '某金融科技有限公司',
-      contact: 'security@example.com'
-    },
-    attachments: [
-      { name: '项目授权书.pdf', size: '256KB', type: 'pdf', url: '#' },
-      { name: '测试范围说明.docx', size: '128KB', type: 'doc', url: '#' },
-      { name: '系统架构图.png', size: '1.2MB', type: 'image', url: '#' }
-    ],
-    requirements: [
-      '持有CISP、OSCP或同等级别认证优先',
-      '3年以上安全测试经验',
-      '熟悉金融业务逻辑',
-      '能够独立编写漏洞报告'
-    ],
-    createdAt: '2026-01-05'
+  try {
+    const res = await getProjectDetail(parseInt(id))
+    projectDetail.value = res as unknown as ProjectDetail
+    isAccepted.value = (res as unknown as { accepted: boolean }).accepted || false
+  } catch (error) {
+    console.error('加载项目详情失败:', error)
+    Message({
+      type: 'error',
+      message: '加载项目详情失败'
+    })
+  } finally {
+    loading.value = false
   }
-  
-  loading.value = false
 }
 
 // 成功弹窗状态
 const successModalVisible = ref(false)
 
+// 按钮文本
+const buttonText = computed(() => {
+  if (isAccepted.value) return '已接受'
+  if (!projectDetail.value || projectDetail.value.status !== 'recruiting') return '不可接受'
+  return '接受任务'
+})
+
+// 按钮是否禁用
+const isButtonDisabled = computed(() => {
+  return isAccepted.value || !projectDetail.value || projectDetail.value.status !== 'recruiting' || accepting.value
+})
+
 // 接受任务
-const acceptTask = () => {
-  if (!projectDetail.value || projectDetail.value.status !== 'recruiting') return
+const acceptTask = async () => {
+  if (!projectDetail.value || projectDetail.value.status !== 'recruiting' || isAccepted.value) return
   
-  successModalVisible.value = true
+  accepting.value = true
+  
+  try {
+    await acceptProjectTask(projectDetail.value.id)
+    isAccepted.value = true
+    projectDetail.value.status = 'in_progress'  // 更新状态为进行中
+    successModalVisible.value = true
+  } catch (error: unknown) {
+    console.error('接受任务失败:', error)
+    const errorMessage = error instanceof Error ? error.message : '接受任务失败，请重试'
+    Message({
+      type: 'error',
+      message: errorMessage
+    })
+  } finally {
+    accepting.value = false
+  }
 }
 
 // 关闭弹窗并返回列表
@@ -127,7 +99,8 @@ const goBack = () => {
 }
 
 // 格式化日期
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return '暂无'
   const date = new Date(dateStr)
   return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
@@ -187,13 +160,14 @@ onMounted(() => {
           <div class="header-right">
             <button 
               class="accept-btn" 
-              :disabled="projectDetail.status !== 'recruiting'"
+              :class="{ 'accepted': isAccepted }"
+              :disabled="isButtonDisabled"
               @click="acceptTask"
             >
               <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-              <span>接受任务</span>
+              <span>{{ buttonText }}</span>
             </button>
           </div>
         </div>
@@ -209,19 +183,6 @@ onMounted(() => {
               </h3>
               <div class="description-content" v-html="projectDetail.description.replace(/\n/g, '<br>')"></div>
             </div>
-
-            <!-- 要求与资质 -->
-            <div class="detail-card">
-              <h3 class="card-title">
-                <d-icon name="check-circle" />
-                <span>要求与资质</span>
-              </h3>
-              <ul class="requirements-list">
-                <li v-for="(req, idx) in projectDetail.requirements" :key="idx">
-                  {{ req }}
-                </li>
-              </ul>
-            </div>
           </div>
 
           <!-- 右侧信息 -->
@@ -236,33 +197,14 @@ onMounted(() => {
                 </div>
                 <div class="info-item">
                   <span class="label">发布时间</span>
-                  <span class="value">{{ formatDate(projectDetail.createdAt) }}</span>
+                  <span class="value">{{ formatDate(projectDetail.created_at) }}</span>
                 </div>
               </div>
             </div>
 
-            <!-- 发布人信息 -->
-            <div class="info-card">
-              <h4 class="info-title">发布人信息</h4>
-              <div class="publisher-info">
-                <div class="publisher-avatar">
-                  <d-icon name="user" size="24px" />
-                </div>
-                <div class="publisher-detail">
-                  <span class="name">{{ projectDetail.publisher.name }}</span>
-                  <span class="company">{{ projectDetail.publisher.company }}</span>
-                </div>
-              </div>
-              <div class="contact-info" v-if="projectDetail.publisher.contact">
-                <d-icon name="mail" />
-                <span>{{ projectDetail.publisher.contact }}</span>
-              </div>
-            </div>
-
-            <!-- 附件资源 -->
             <div class="info-card">
               <h4 class="info-title">附件资源</h4>
-              <div class="attachments-list">
+              <div v-if="projectDetail.attachments && projectDetail.attachments.length > 0" class="attachments-list">
                 <a 
                   v-for="(file, idx) in projectDetail.attachments" 
                   :key="idx"
@@ -276,6 +218,10 @@ onMounted(() => {
                   </div>
                   <d-icon name="download" class="download-icon" />
                 </a>
+              </div>
+              <div v-else class="empty-attachments">
+                <d-icon name="folder-open" />
+                <span>暂无附件</span>
               </div>
             </div>
           </div>
@@ -435,6 +381,16 @@ onMounted(() => {
   &:disabled {
     background: #cbd5e1;
     cursor: not-allowed;
+  }
+  
+  &.accepted {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    cursor: default;
+    
+    &:disabled {
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      opacity: 0.9;
+    }
   }
   
   .btn-icon {
@@ -622,6 +578,19 @@ onMounted(() => {
     color: #94a3b8;
     transition: color 0.2s;
   }
+}
+
+.empty-attachments {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #94a3b8;
+  font-size: 13px;
+  gap: 8px;
+  background: #f8fafc;
+  border-radius: 8px;
 }
 
 @media (max-width: 900px) {
