@@ -46,7 +46,7 @@ const formModel = reactive({
 })
 
 // 离开页面前的二次确认
-onBeforeRouteLeave((to, from, next) => {
+onBeforeRouteLeave((_to, _from, next) => {
   // 如果已经提交成功，或者表单没有任何内容，则直接离开
   const hasContent = formModel.title || formModel.description || (formModel.content && formModel.content !== '<p><br></p>')
   
@@ -75,9 +75,6 @@ const handleCancelLeave = () => {
   }
 }
 
-// 修复 lint: 虽然 to, from 未直接读取，但在导航守卫中必须声明
-// @ts-ignore
-console.log('Router sync:', { to: route.path }) 
 
 
 // Quill 编辑器选项
@@ -124,13 +121,15 @@ const handleSubmit = async () => {
       await updateArticle(Number(route.params.id), {
         title: formModel.title,
         description: formModel.description,
-        content: formModel.content
+        content: formModel.content,
+        category: 'security' // 默认分类
       })
     } else {
       await createArticle({
         title: formModel.title,
         description: formModel.description,
-        content: formModel.content
+        content: formModel.content,
+        category: 'security' // 默认分类
       })
     }
     isSubmitted.value = true

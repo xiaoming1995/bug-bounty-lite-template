@@ -61,17 +61,6 @@ const paginatedArticles = computed(() => {
 // 总条数
 const total = computed(() => myArticles.value.length)
 
-// 页码变化
-const handlePageChange = (page: number) => {
-  pagination.value.current = page
-}
-
-// 每页条数变化
-const handlePageSizeChange = (size: number) => {
-  pagination.value.pageSize = size
-  pagination.value.current = 1 // 重置到第一页
-}
-
 // 每页条数选项
 const pageSizeOptions = [5, 10, 20, 50]
 
@@ -143,7 +132,22 @@ onMounted(() => {
         </div>
         
         <div v-else-if="myArticles.length === 0" class="empty-state">
-          <d-empty mode="data" title="暂无文章" description="您还没有发布过任何文章，快去开启您的技术分享之旅吧！" />
+          <div class="empty-icon">
+            <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="60" cy="60" r="55" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="2"/>
+              <rect x="35" y="30" width="50" height="60" rx="4" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+              <line x1="45" y1="45" x2="75" y2="45" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/>
+              <line x1="45" y1="55" x2="70" y2="55" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/>
+              <line x1="45" y1="65" x2="65" y2="65" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/>
+              <line x1="45" y1="75" x2="60" y2="75" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h3 class="empty-title">暂无文章</h3>
+          <p class="empty-desc">您还没有发布过任何文章，快去开启您的技术分享之旅吧！</p>
+          <button class="empty-action" @click="router.push('/post-article')">
+            <d-icon name="add" />
+            发布第一篇文章
+          </button>
         </div>
 
         <div v-else class="article-list">
@@ -299,9 +303,56 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 100px 0;
+  padding: 80px 24px;
   color: #64748b;
-  gap: 16px;
+  gap: 12px;
+}
+
+.empty-state {
+  .empty-icon {
+    margin-bottom: 8px;
+    opacity: 0.9;
+  }
+  
+  .empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #334155;
+    margin: 0;
+  }
+  
+  .empty-desc {
+    font-size: 14px;
+    color: #94a3b8;
+    margin: 0 0 16px 0;
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.6;
+  }
+  
+  .empty-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 24px;
+    background: linear-gradient(135deg, #5e7ce0 0%, #7b68ee 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(94, 124, 224, 0.3);
+    }
+    
+    &:active {
+      transform: translateY(0);
+    }
+  }
 }
 
 .article-list {

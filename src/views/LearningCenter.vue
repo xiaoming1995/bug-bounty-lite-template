@@ -143,39 +143,59 @@ onMounted(() => {
           </div>
 
           <!-- 文章列表 -->
-          <div v-else class="article-list">
-            <div 
-              v-for="article in currentArticles" 
-              :key="article.id" 
-              class="article-card"
-              @click="viewArticle(article.id)"
-            >
-              <div class="article-content">
-                <div class="article-meta">
-                  <span class="category">{{ article.category }}</span>
-                  <span class="date">{{ formatDate(article.publishDate) }}</span>
-                </div>
-                <h3 class="article-title">{{ article.title }}</h3>
-                <p class="article-desc">{{ article.description }}</p>
-                <div class="article-footer">
-                  <div class="author-info">
-                    <div class="author-avatar" :class="{ 'admin-avatar': article.isAdmin }">
-                      <img v-if="article.avatar" :src="article.avatar" class="avatar-img" alt="头像" />
-                      <d-icon v-else-if="article.isAdmin" name="shield" size="14px" />
-                      <d-icon v-else name="user" size="14px" />
-                    </div>
-                    <span class="author-name">{{ article.author }}</span>
+          <template v-else>
+            <!-- 空状态 -->
+            <div v-if="articleList.length === 0" class="empty-state">
+              <div class="empty-icon">
+                <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="60" cy="60" r="55" fill="#f0f4ff" stroke="#e0e7ff" stroke-width="2"/>
+                  <rect x="30" y="35" width="60" height="50" rx="4" fill="#fff" stroke="#c7d2fe" stroke-width="2"/>
+                  <line x1="40" y1="50" x2="80" y2="50" stroke="#e0e7ff" stroke-width="3" stroke-linecap="round"/>
+                  <line x1="40" y1="60" x2="75" y2="60" stroke="#e0e7ff" stroke-width="3" stroke-linecap="round"/>
+                  <line x1="40" y1="70" x2="65" y2="70" stroke="#e0e7ff" stroke-width="3" stroke-linecap="round"/>
+                  <circle cx="85" cy="80" r="15" fill="#5e7ce0" fill-opacity="0.1" stroke="#5e7ce0" stroke-width="2"/>
+                  <path d="M82 77L88 83M88 77L82 83" stroke="#5e7ce0" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <h3 class="empty-title">暂无文章</h3>
+              <p class="empty-desc">学习中心还没有发布任何文章，敬请期待精彩内容！</p>
+            </div>
+            
+            <!-- 有数据时显示列表 -->
+            <div v-else class="article-list">
+              <div 
+                v-for="article in currentArticles" 
+                :key="article.id" 
+                class="article-card"
+                @click="viewArticle(article.id)"
+              >
+                <div class="article-content">
+                  <div class="article-meta">
+                    <span class="category">{{ article.category }}</span>
+                    <span class="date">{{ formatDate(article.publishDate) }}</span>
                   </div>
-                  <div class="stats">
-                    <span class="views">
-                      <d-icon name="preview" />
-                      {{ formatViews(article.views) }}
-                    </span>
+                  <h3 class="article-title">{{ article.title }}</h3>
+                  <p class="article-desc">{{ article.description }}</p>
+                  <div class="article-footer">
+                    <div class="author-info">
+                      <div class="author-avatar" :class="{ 'admin-avatar': article.isAdmin }">
+                        <img v-if="article.avatar" :src="article.avatar" class="avatar-img" alt="头像" />
+                        <d-icon v-else-if="article.isAdmin" name="shield" size="14px" />
+                        <d-icon v-else name="user" size="14px" />
+                      </div>
+                      <span class="author-name">{{ article.author }}</span>
+                    </div>
+                    <div class="stats">
+                      <span class="views">
+                        <d-icon name="preview" />
+                        {{ formatViews(article.views) }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </template>
 
           <!-- 分页 -->
           <div v-if="!loading && totalPages > 1" class="pagination">
@@ -310,6 +330,37 @@ onMounted(() => {
   color: #64748b;
   background: #fff;
   border-radius: 16px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  background: #fff;
+  border-radius: 16px;
+  text-align: center;
+  
+  .empty-icon {
+    margin-bottom: 16px;
+    opacity: 0.9;
+  }
+  
+  .empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #334155;
+    margin: 0 0 8px 0;
+  }
+  
+  .empty-desc {
+    font-size: 14px;
+    color: #94a3b8;
+    margin: 0;
+    max-width: 300px;
+    line-height: 1.6;
+  }
 }
 
 .article-list {
