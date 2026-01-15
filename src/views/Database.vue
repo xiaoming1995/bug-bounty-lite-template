@@ -278,7 +278,7 @@ const getStatusText = (status: string | undefined) => {
 
 // 将英文危害等级转换为中文
 const getSeverityText = (severity: string | number | undefined): string => {
-  if (severity === undefined || severity === null || severity === '') return '-';
+  if (severity === undefined || severity === null || severity === '') return '未定义';
   
   const s = String(severity);
   const severityNormalized = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
