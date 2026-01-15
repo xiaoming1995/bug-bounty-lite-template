@@ -76,3 +76,9 @@ export const CONFIG_API = {
   SEVERITY_LEVEL: '/v1/configs/severity_level'
 }
 
+// Dashboard 相关 API
+export const DASHBOARD_API = {
+  STATISTICS: '/v1/dashboard/statistics',
+  TREND: '/v1/dashboard/trend',
+  REPORTS: '/v1/dashboard/reports'
+}

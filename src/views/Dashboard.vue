@@ -1,93 +1,201 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import Header from './Public/Header.vue'
+import { get } from '../utils/request'
+import { DASHBOARD_API } from '../api/config'
+
+const router = useRouter()
+
+// ================== 接口返回类型定义 ==================
+
+interface StatisticsResponse {
+  critical: number
+  high: number
+  medium: number
+  low: number
+  none: number
+  total: number
+}
+
+interface TrendItem {
+  label: string
+  value: number
+}
+
+interface ReportItem {
+  id: number
+  vulnerability_name: string
+  severity: string
+  status: string
+  created_at: string
+  author?: {
+    id: number
+    username: string
+  }
+  self_assessment?: {
+    config_value: string
+  }
+}
+
+interface ReportsResponse {
+  list: ReportItem[]
+  total: number
+}
+
+// ================== 响应式状态 ==================
+
+const loading = ref(true)
+const statsLoading = ref(true)
+const trendLoading = ref(true)
+const reportsLoading = ref(true)
 
 // 统计数据
 const stats = ref([
-  {
-    value: 156,
-    title: '严重漏洞',
-    iconColor: '#7c3aed', // 紫色 - 最严重
-    trend: { value: 12, direction: 'up', color: '#ef4444', percentage: '8.2%' }
-  },
-  {
-    value: 896,
-    title: '高危漏洞',
-    iconColor: '#ef4444', // 红色
-    trend: { value: 23, direction: 'down', color: '#10b981', percentage: '12.5%' }
-  },
-  {
-    value: 1284,
-    title: '中危漏洞',
-    iconColor: '#f59e0b', // 橙色
-    trend: { value: 45, direction: 'up', color: '#10b981', percentage: '5.3%' }
-  },
-  {
-    value: 2156,
-    title: '低危漏洞',
-    iconColor: '#3b82f6', // 蓝色
-    trend: { value: 18, direction: 'down', color: '#ef4444', percentage: '3.1%' }
-  }
+  { value: 0, title: '严重漏洞', iconColor: '#7c3aed', trend: { value: 0, direction: 'up', percentage: '0%' } },
+  { value: 0, title: '高危漏洞', iconColor: '#ef4444', trend: { value: 0, direction: 'down', percentage: '0%' } },
+  { value: 0, title: '中危漏洞', iconColor: '#f59e0b', trend: { value: 0, direction: 'up', percentage: '0%' } },
+  { value: 0, title: '低危漏洞', iconColor: '#3b82f6', trend: { value: 0, direction: 'down', percentage: '0%' } }
 ])
 
-// 漏洞数据
-interface Vulnerability {
-  id: string
-  title: string
-  severity: '高危' | '中危' | '低危'
-  status: '未审核' | '已审核' | '已修复'
-  publishTime: string
-  author: string
-  cveId?: string
-  score?: number
+// 漏洞列表
+const publishedVulnerabilities = ref<ReportItem[]>([])
+const reviewedVulnerabilities = ref<ReportItem[]>([])
+const publishedTotal = ref(0)
+const reviewedTotal = ref(0)
+
+// 趋势数据
+type TrendPeriod = 'day' | 'month' | 'year'
+const trendPeriod = ref<TrendPeriod>('month')
+const trendDataRaw = ref<TrendItem[]>([])
+
+// ================== API 调用 ==================
+
+// 获取统计数据
+const fetchStatistics = async () => {
+  statsLoading.value = true
+  try {
+    const response = await get<StatisticsResponse>(DASHBOARD_API.STATISTICS)
+    if (response) {
+      stats.value = [
+        { value: response.critical || 0, title: '严重漏洞', iconColor: '#7c3aed', trend: { value: 0, direction: 'up', percentage: '0%' } },
+        { value: response.high || 0, title: '高危漏洞', iconColor: '#ef4444', trend: { value: 0, direction: 'down', percentage: '0%' } },
+        { value: response.medium || 0, title: '中危漏洞', iconColor: '#f59e0b', trend: { value: 0, direction: 'up', percentage: '0%' } },
+        { value: response.low || 0, title: '低危漏洞', iconColor: '#3b82f6', trend: { value: 0, direction: 'down', percentage: '0%' } }
+      ]
+    }
+  } catch (error) {
+    console.error('获取统计数据失败:', error)
+  } finally {
+    statsLoading.value = false
+  }
 }
 
-const loading = ref(true)
-const publishedVulnerabilities = ref<Vulnerability[]>([])
-const reviewedVulnerabilities = ref<Vulnerability[]>([])
+// 获取趋势数据
+const fetchTrend = async (period: TrendPeriod) => {
+  trendLoading.value = true
+  try {
+    const response = await get<TrendItem[]>(`${DASHBOARD_API.TREND}?period=${period}`)
+    if (response && Array.isArray(response)) {
+      trendDataRaw.value = response
+    }
+  } catch (error) {
+    console.error('获取趋势数据失败:', error)
+    trendDataRaw.value = []
+  } finally {
+    trendLoading.value = false
+  }
+}
 
-// 模拟数据获取
-const fetchVulnerabilities = () => {
+// 获取漏洞列表
+const fetchReports = async () => {
+  reportsLoading.value = true
+  try {
+    // 获取待审核漏洞
+    const pendingResponse = await get<ReportsResponse>(`${DASHBOARD_API.REPORTS}?type=pending&limit=6`)
+    if (pendingResponse && pendingResponse.list) {
+      publishedVulnerabilities.value = pendingResponse.list
+      publishedTotal.value = pendingResponse.total || 0
+    }
+
+    // 获取已审核漏洞
+    const reviewedResponse = await get<ReportsResponse>(`${DASHBOARD_API.REPORTS}?type=reviewed&limit=6`)
+    if (reviewedResponse && reviewedResponse.list) {
+      reviewedVulnerabilities.value = reviewedResponse.list
+      reviewedTotal.value = reviewedResponse.total || 0
+    }
+  } catch (error) {
+    console.error('获取漏洞列表失败:', error)
+  } finally {
+    reportsLoading.value = false
+  }
+}
+
+// 初始化加载
+const initDashboard = async () => {
   loading.value = true
-  setTimeout(() => {
-    publishedVulnerabilities.value = [
-      { id: 'VUL-2023-001', title: 'SQL注入漏洞存在于用户登录模块', severity: '高危', status: '未审核', publishTime: '2023-05-15 14:30', author: '张研究员' },
-      { id: 'VUL-2023-002', title: 'XSS跨站脚本漏洞在评论功能中', severity: '中危', status: '未审核', publishTime: '2023-05-15 10:15', author: '李测试' },
-      { id: 'VUL-2023-003', title: 'CSRF跨站请求伪造漏洞', severity: '中危', status: '未审核', publishTime: '2023-05-14 16:45', author: '王开发', cveId: 'CVE-2023-12345' },
-      { id: 'VUL-2023-004', title: '文件上传漏洞允许执行恶意代码', severity: '高危', status: '未审核', publishTime: '2023-05-14 09:20', author: '安全团队' },
-      { id: 'VUL-2023-005', title: '信息泄露漏洞在API响应中', severity: '低危', status: '未审核', publishTime: '2023-05-13 11:10', author: '渗透测试员' },
-      { id: 'VUL-2023-006', title: '未授权访问漏洞', severity: '高危', status: '未审核', publishTime: '2023-05-12 09:00', author: '匿名' }
-    ]
-
-    reviewedVulnerabilities.value = [
-      { id: 'VUL-2023-006', title: '权限提升漏洞在管理员面板', severity: '高危', status: '已审核', publishTime: '2023-05-12 08:30', author: '赵研究员', cveId: 'CVE-2023-12346', score: 8.2 },
-      { id: 'VUL-2023-007', title: 'SSRF服务器端请求伪造漏洞', severity: '高危', status: '已审核', publishTime: '2023-05-11 15:20', author: '外部研究员', cveId: 'CVE-2023-12347', score: 7.5 },
-      { id: 'VUL-2023-008', title: '不安全的反序列化漏洞', severity: '中危', status: '已审核', publishTime: '2023-05-10 13:45', author: '开发团队', score: 5.8 },
-      { id: 'VUL-2023-009', title: '密码重置功能存在逻辑缺陷', severity: '中危', status: '已审核', publishTime: '2023-05-09 17:30', author: '安全审计员', score: 6.4 },
-      { id: 'VUL-2023-010', title: '目录遍历漏洞允许访问系统文件', severity: '高危', status: '已审核', publishTime: '2023-05-08 10:15', author: '白帽黑客', cveId: 'CVE-2023-12348', score: 9.1 },
-      { id: 'VUL-2023-011', title: '弱口令漏洞', severity: '低危', status: '已审核', publishTime: '2023-05-07 11:00', author: '内部自查', score: 3.5 }
-    ]
-
-    loading.value = false
-  }, 1500)
+  await Promise.all([
+    fetchStatistics(),
+    fetchTrend(trendPeriod.value),
+    fetchReports()
+  ])
+  loading.value = false
 }
 
-const getSeverityColor = (severity: string) => {
+// 监听周期变化
+watch(trendPeriod, (newPeriod) => {
+  fetchTrend(newPeriod)
+})
+
+// ================== 辅助函数 ==================
+
+const getSeverityColor = (severity: string | undefined) => {
+  if (!severity) return 'default'
   const colors: Record<string, string> = {
-    '高危': 'danger', 
+    'Critical': 'danger',
+    'High': 'danger', 
+    'Medium': 'warning',
+    'Low': 'primary',
+    '高危': 'danger',
     '中危': 'warning',
     '低危': 'primary'
   }
   return colors[severity] || 'default'
 }
 
-const viewDetail = (id: string) => {
-  console.log('查看详情:', id)
+const getSeverityText = (severity: string | undefined) => {
+  if (!severity) return '未定义'
+  const textMap: Record<string, string> = {
+    'Critical': '严重',
+    'High': '高危',
+    'Medium': '中危',
+    'Low': '低危',
+    'None': '无危害'
+  }
+  return textMap[severity] || severity
 }
 
-const viewMore = (style : string) => {
-    console.log('跳转更多',style)
+const formatDate = (dateString: string) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
+
+const viewDetail = (id: number) => {
+  router.push(`/database/detail/${id}`)
+}
+
+const viewMore = (_type: string) => {
+  router.push('/database')
+}
+
+// ================== 图表计算属性 ==================
 
 // 漏洞等级分布数据
 const totalVulns = computed(() => stats.value.reduce((sum, item) => sum + item.value, 0))
@@ -137,52 +245,19 @@ const getDonutSegments = computed(() => {
   })
 })
 
-// 趋势图周期切换
-type TrendPeriod = 'day' | 'month' | 'year'
-const trendPeriod = ref<TrendPeriod>('month')
-
-// 生成当前月全部日期
-const generateCurrentMonthDays = () => {
-  const days = []
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = today.getMonth()
-  // 获取当前月的天数
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  
-  for (let i = 1; i <= daysInMonth; i++) {
-    days.push({
-      label: `${i}日`,
-      value: Math.floor(Math.random() * 30) + 5 // 模拟数据
-    })
-  }
-  return days
-}
-
-// 模拟趋势数据
-const trendDataRaw = ref({
-  day: generateCurrentMonthDays(),
-  month: [
-    { label: '1月', value: 85 }, { label: '2月', value: 92 }, { label: '3月', value: 78 },
-    { label: '4月', value: 125 }, { label: '5月', value: 145 }, { label: '6月', value: 168 },
-    { label: '7月', value: 210 }, { label: '8月', value: 185 }, { label: '9月', value: 156 },
-    { label: '10月', value: 178 }, { label: '11月', value: 198 }, { label: '12月', value: 225 }
-  ],
-  year: [
-    { label: '2021', value: 856 }, { label: '2022', value: 1245 },
-    { label: '2023', value: 1689 }, { label: '2024', value: 2156 }, { label: '2025', value: 2892 }
-  ]
+// 趋势图数据
+const trendData = computed(() => trendDataRaw.value)
+const trendMax = computed(() => {
+  if (trendData.value.length === 0) return 1
+  return Math.max(...trendData.value.map((d: TrendItem) => d.value)) || 1
 })
-
-const trendData = computed(() => trendDataRaw.value[trendPeriod.value])
-const trendMax = computed(() => Math.max(...trendData.value.map((d: { value: number }) => d.value)))
 
 // 切换周期
 const setPeriod = (period: TrendPeriod) => {
   trendPeriod.value = period
 }
 
-onMounted(fetchVulnerabilities)
+onMounted(initDashboard)
 </script>
 
 <template>
@@ -372,7 +447,7 @@ onMounted(fetchVulnerabilities)
                 <div class="box-shape"></div>
               </div>
               <span class="title">发布漏洞</span>
-              <span class="badge" v-if="!loading">{{ publishedVulnerabilities.length }}</span>
+              <span class="badge" v-if="!loading">{{ publishedTotal }}</span>
             </div>
             <d-button bs-style="text" class="more-btn" @click="viewMore('published')">
               查看全部 <d-icon name="arrow-right" size="12px" />
@@ -404,17 +479,17 @@ onMounted(fetchVulnerabilities)
                     <span class="dot" :class="getSeverityColor(item.severity)"></span>
                   </div>
                   <div class="item-main">
-                    <div class="item-title">{{ item.title }}</div>
+                    <div class="item-title">{{ item.vulnerability_name }}</div>
                     <div class="item-meta">
-                      <span class="meta-tag">{{ item.id }}</span>
+                      <span class="meta-tag">#{{ item.id }}</span>
                       <span class="meta-divider">|</span>
-                      <span>{{ item.author }}</span>
+                      <span>{{ item.author?.username || '未知' }}</span>
                       <span class="meta-divider">|</span>
-                      <span>{{ item.publishTime }}</span>
+                      <span>{{ formatDate(item.created_at) }}</span>
                     </div>
                   </div>
                   <div class="item-tag">
-                    <d-tag :type="getSeverityColor(item.severity)" size="sm">{{ item.severity }}</d-tag>
+                    <d-tag :type="getSeverityColor(item.self_assessment?.config_value)" size="sm">{{ getSeverityText(item.self_assessment?.config_value) }}</d-tag>
                   </div>
                 </div>
               </template>
@@ -433,7 +508,7 @@ onMounted(fetchVulnerabilities)
                 <div class="box-shape"></div>
               </div>
               <span class="title">已审核漏洞</span>
-              <span class="badge success" v-if="!loading">{{ reviewedVulnerabilities.length }}</span>
+              <span class="badge success" v-if="!loading">{{ reviewedTotal }}</span>
             </div>
             <d-button bs-style="text" class="more-btn" @click="viewMore('reviewed')">
               查看全部 <d-icon name="arrow-right" size="12px" />
@@ -465,18 +540,17 @@ onMounted(fetchVulnerabilities)
                     <span class="dot success"></span>
                   </div>
                   <div class="item-main">
-                    <div class="item-title">{{ item.title }}</div>
+                    <div class="item-title">{{ item.vulnerability_name }}</div>
                     <div class="item-meta">
-                      <span class="meta-tag">{{ item.cveId || item.id }}</span>
+                      <span class="meta-tag">#{{ item.id }}</span>
                       <span class="meta-divider">|</span>
-                      <span>{{ item.author }}</span>
+                      <span>{{ item.author?.username || '未知' }}</span>
                       <span class="meta-divider">|</span>
-                      <span>{{ item.publishTime }}</span>
+                      <span>{{ formatDate(item.created_at) }}</span>
                     </div>
                   </div>
-                  <div class="item-score" v-if="item.score">
-                    <span class="score-val">{{ item.score }}</span>
-                    <span class="score-label">分</span>
+                  <div class="item-tag">
+                    <d-tag :type="getSeverityColor(item.severity)" size="sm">{{ getSeverityText(item.severity) }}</d-tag>
                   </div>
                 </div>
               </template>
@@ -1075,18 +1149,18 @@ onMounted(fetchVulnerabilities)
     }
     
     .more-btn {
-      color: #3b82f6;
-      font-size: 14px;
+      color: #1f2937;
+      font-size: 12px;
       font-weight: 500;
-      padding: 0;
-      border-radius: 0;
-      transition: all 0.2s ease;
-      background: transparent;
+      padding: 5px 12px;
+      border-radius: 6px;
+      transition: all 0.25s ease;
+      background: rgba(148, 163, 184, 0.15);
       border: none;
       
       &:hover { 
-        color: #2563eb;
-        text-decoration: underline;
+        color: #111827;
+        background: rgba(148, 163, 184, 0.3);
       }
       
       :deep(.devui-button-content) {
