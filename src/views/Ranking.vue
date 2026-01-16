@@ -1,23 +1,26 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import Header from './Public/Header.vue'
+import { get } from '../utils/request'
+
+// 排行榜数据项接口
+interface RankingItem {
+  rank: number
+  user_id: number
+  user_name: string
+  avatar_url: string
+  points: number
+  vulns: number
+  critical: number
+  high: number
+}
 
 // 排行榜类型
-const timeRange = ref('monthly') // weekly, monthly, total
+const timeRange = ref('total') // 暂时只支持总榜
 
-// Mock Data - 扩展数据
-const rankingData = ref([
-  { rank: 1, name: 'CyberNinja', avatar: '', points: 12500, vulns: 42, critical: 8, high: 15, trend: 'up', badge: '🔥' },
-  { rank: 2, name: 'BugHunter_X', avatar: '', points: 9800, vulns: 35, critical: 5, high: 12, trend: 'same', badge: '⚡' },
-  { rank: 3, name: 'WhiteHat_Pro', avatar: '', points: 8750, vulns: 28, critical: 4, high: 10, trend: 'down', badge: '💎' },
-  { rank: 4, name: 'SecMaster', avatar: '', points: 7200, vulns: 25, critical: 3, high: 9, trend: 'up', badge: '' },
-  { rank: 5, name: 'VulnSeeker', avatar: '', points: 6800, vulns: 22, critical: 2, high: 8, trend: 'up', badge: '' },
-  { rank: 6, name: 'CodeGuardian', avatar: '', points: 5400, vulns: 18, critical: 1, high: 7, trend: 'same', badge: '' },
-  { rank: 7, name: 'HackDetection', avatar: '', points: 4900, vulns: 15, critical: 1, high: 5, trend: 'down', badge: '' },
-  { rank: 8, name: 'NetDefender', avatar: '', points: 4500, vulns: 12, critical: 0, high: 5, trend: 'up', badge: '' },
-  { rank: 9, name: 'SysAdmin_01', avatar: '', points: 3800, vulns: 10, critical: 0, high: 4, trend: 'same', badge: '' },
-  { rank: 10, name: 'WebSecGuru', avatar: '', points: 3200, vulns: 8, critical: 0, high: 3, trend: 'down', badge: '' },
-])
+// 列表数据
+const rankingData = ref<RankingItem[]>([])
+const loading = ref(false)
 
 // 顶部三名
 const topThree = computed(() => rankingData.value.slice(0, 3))
@@ -27,18 +30,49 @@ const restList = computed(() => rankingData.value.slice(3))
 
 // 统计数据
 const stats = ref({
-  totalHunters: 1256,
-  totalVulns: 8934,
-  totalRewards: '¥2.5M'
+  totalHunters: 0,
+  totalVulns: 0
+})
+
+// 后端返回的完整响应接口
+interface RankingResponse {
+  list: RankingItem[]
+  statistics: {
+    total_hunters: number
+    total_vulns: number
+  }
+}
+
+// 加载数据
+const fetchRankingData = async () => {
+  loading.value = true
+  try {
+    const data = await get<RankingResponse>('/v1/ranking?limit=100')
+    if (data) {
+      rankingData.value = data.list || []
+      
+      // 使用后端返回的实时全局统计数据
+      stats.value.totalHunters = data.statistics.total_hunters
+      stats.value.totalVulns = data.statistics.total_vulns
+    }
+  } catch (error) {
+    console.error('加载排行榜失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchRankingData()
 })
 
 const handleTimeChange = (type: string) => {
   timeRange.value = type
+  // 目前后端逻辑暂未区分时间维度，仅做状态切换
 }
 
 const viewProfile = (name: string) => {
   console.log('查看用户:', name)
-  // router.push(`/profile/${name}`)
 }
 
 // 格式化分数
@@ -76,10 +110,6 @@ const formatPoints = (points: number) => {
           <div class="stat-card">
             <div class="stat-value">{{ stats.totalVulns }}</div>
             <div class="stat-label">已发现漏洞</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">{{ stats.totalRewards }}</div>
-            <div class="stat-label">累计奖励</div>
           </div>
         </div>
       </div>
@@ -119,7 +149,7 @@ const formatPoints = (points: number) => {
       <!-- Top 3 领奖台 - 精美设计 -->
       <div class="podium-section">
         <!-- 第二名 -->
-        <div class="podium-card rank-2" @click="viewProfile(topThree[1]?.name)">
+        <div class="podium-card rank-2" @click="viewProfile(topThree[1]?.user_name)">
           <div class="card-glow"></div>
           <div class="card-content">
             <div class="rank-number">
@@ -128,12 +158,12 @@ const formatPoints = (points: number) => {
             </div>
             <div class="avatar-container">
               <div class="avatar-ring">
-                <d-avatar :width="68" :height="68" :is-round="true" class="user-avatar">
-                  <template #avatar>{{ topThree[1]?.name.substring(0,1) }}</template>
+                <d-avatar :width="68" :height="68" :is-round="true" class="user-avatar" :img-src="topThree[1]?.avatar_url">
+                  <template #avatar v-if="!topThree[1]?.avatar_url">{{ topThree[1]?.user_name.substring(0,1) }}</template>
                 </d-avatar>
               </div>
             </div>
-            <h3 class="user-name">{{ topThree[1]?.name }}</h3>
+            <h3 class="user-name">{{ topThree[1]?.user_name }}</h3>
             <div class="points-display">
               <span class="points-num">{{ formatPoints(topThree[1]?.points || 0) }}</span>
               <span class="points-label">积分</span>
@@ -148,12 +178,17 @@ const formatPoints = (points: number) => {
                 <span class="stat-num critical">{{ topThree[1]?.critical }}</span>
                 <span class="stat-label">严重</span>
               </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <span class="stat-num high">{{ topThree[1]?.high }}</span>
+                <span class="stat-label">高危</span>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- 第一名 - 冠军 -->
-        <div class="podium-card rank-1" @click="viewProfile(topThree[0]?.name)">
+        <div class="podium-card rank-1" @click="viewProfile(topThree[0]?.user_name)">
           <div class="card-glow"></div>
           <div class="crown-decoration">
             <span class="crown-emoji">👑</span>
@@ -170,13 +205,13 @@ const formatPoints = (points: number) => {
             </div>
             <div class="avatar-container">
               <div class="avatar-ring gold">
-                <d-avatar :width="80" :height="80" :is-round="true" class="user-avatar">
-                  <template #avatar>{{ topThree[0]?.name.substring(0,1) }}</template>
+                <d-avatar :width="80" :height="80" :is-round="true" class="user-avatar" :img-src="topThree[0]?.avatar_url">
+                  <template #avatar v-if="!topThree[0]?.avatar_url">{{ topThree[0]?.user_name.substring(0,1) }}</template>
                 </d-avatar>
               </div>
               <div class="avatar-glow"></div>
             </div>
-            <h3 class="user-name">{{ topThree[0]?.name }}</h3>
+            <h3 class="user-name">{{ topThree[0]?.user_name }}</h3>
             <div class="points-display">
               <span class="points-num">{{ formatPoints(topThree[0]?.points || 0) }}</span>
               <span class="points-label">积分</span>
@@ -191,12 +226,17 @@ const formatPoints = (points: number) => {
                 <span class="stat-num critical">{{ topThree[0]?.critical }}</span>
                 <span class="stat-label">严重</span>
               </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <span class="stat-num high">{{ topThree[0]?.high }}</span>
+                <span class="stat-label">高危</span>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- 第三名 -->
-        <div class="podium-card rank-3" @click="viewProfile(topThree[2]?.name)">
+        <div class="podium-card rank-3" @click="viewProfile(topThree[2]?.user_name)">
           <div class="card-glow"></div>
           <div class="card-content">
             <div class="rank-number">
@@ -205,12 +245,12 @@ const formatPoints = (points: number) => {
             </div>
             <div class="avatar-container">
               <div class="avatar-ring">
-                <d-avatar :width="68" :height="68" :is-round="true" class="user-avatar">
-                  <template #avatar>{{ topThree[2]?.name.substring(0,1) }}</template>
+                <d-avatar :width="68" :height="68" :is-round="true" class="user-avatar" :img-src="topThree[2]?.avatar_url">
+                  <template #avatar v-if="!topThree[2]?.avatar_url">{{ topThree[2]?.user_name.substring(0,1) }}</template>
                 </d-avatar>
               </div>
             </div>
-            <h3 class="user-name">{{ topThree[2]?.name }}</h3>
+            <h3 class="user-name">{{ topThree[2]?.user_name }}</h3>
             <div class="points-display">
               <span class="points-num">{{ formatPoints(topThree[2]?.points || 0) }}</span>
               <span class="points-label">积分</span>
@@ -224,6 +264,11 @@ const formatPoints = (points: number) => {
               <div class="stat-item">
                 <span class="stat-num critical">{{ topThree[2]?.critical }}</span>
                 <span class="stat-label">严重</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <span class="stat-num high">{{ topThree[2]?.high }}</span>
+                <span class="stat-label">高危</span>
               </div>
             </div>
           </div>
@@ -244,20 +289,19 @@ const formatPoints = (points: number) => {
         <div class="list-body">
           <div 
             v-for="item in restList" 
-            :key="item.rank" 
+            :key="item.user_id" 
             class="list-item"
-            @click="viewProfile(item.name)"
+            @click="viewProfile(item.user_name)"
           >
             <div class="col-rank">
               <span class="rank-num">{{ item.rank }}</span>
             </div>
             <div class="col-user">
-              <d-avatar :width="40" :height="40" :is-round="true" class="avatar">
-                <template #avatar>{{ item.name.substring(0,1) }}</template>
+              <d-avatar :width="40" :height="40" :is-round="true" class="avatar" :img-src="item.avatar_url">
+                <template #avatar v-if="!item.avatar_url">{{ item.user_name.substring(0,1) }}</template>
               </d-avatar>
               <div class="user-info">
-                <span class="name">{{ item.name }}</span>
-                <span v-if="item.badge" class="badge">{{ item.badge }}</span>
+                <span class="name">{{ item.user_name }}</span>
               </div>
             </div>
             <div class="col-vulns">
@@ -272,13 +316,7 @@ const formatPoints = (points: number) => {
               <span class="points-value">{{ formatPoints(item.points) }}</span>
             </div>
             <div class="col-trend">
-              <span v-if="item.trend === 'up'" class="trend-up">
-                <d-icon name="arrow-up" />
-              </span>
-              <span v-else-if="item.trend === 'down'" class="trend-down">
-                <d-icon name="arrow-down" />
-              </span>
-              <span v-else class="trend-same">
+              <span class="trend-same">
                 <d-icon name="minus" />
               </span>
             </div>

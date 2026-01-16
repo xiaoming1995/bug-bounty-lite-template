@@ -70,8 +70,8 @@ const filteredTableData = computed(() => {
     return tableData.value;
   }
   return tableData.value.filter(row => {
-    const rowStatus = getStatusClass(row.status || '');
-    return rowStatus === statusFilter.value;
+    const rowStatus = (row.status || '').toLowerCase();
+    return rowStatus === statusFilter.value.toLowerCase();
   });
 });
 
@@ -301,11 +301,11 @@ const getSeverityColor = (severity: string | number | undefined) => {
   const severityNormalized = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
   
   const map: Record<string, string> = {
-    'Critical': 'danger',  '1': 'danger',
-    'High': 'danger',      '2': 'danger',
-    'Medium': 'warning',   '3': 'warning',
-    'Low': 'success',      '4': 'success',
-    'None': 'success',     '5': 'success'
+    'Critical': 'danger',  '1': 'danger', '严重': 'danger',
+    'High': 'danger',      '2': 'danger', '高危': 'danger',
+    'Medium': 'warning',   '3': 'warning', '中危': 'warning',
+    'Low': 'success',      '4': 'success', '低危': 'success',
+    'None': 'success',     '5': 'success', '无危害': 'success'
   };
   
   return map[severityNormalized] || map[s] || 'primary';

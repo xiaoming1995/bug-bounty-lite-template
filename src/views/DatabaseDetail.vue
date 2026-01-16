@@ -149,11 +149,11 @@ const getSeverityColor = (severity: string | number | undefined) => {
   const severityNormalized = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
   
   const map: Record<string, string> = {
-    'Critical': 'critical', '1': 'critical',
-    'High': 'high',         '2': 'high',
-    'Medium': 'medium',     '3': 'medium',
-    'Low': 'low',           '4': 'low',
-    'None': 'low',          '5': 'low'
+    'Critical': 'danger',  '1': 'danger', '严重': 'danger',
+    'High': 'warning',      '2': 'warning', '高危': 'warning',
+    'Medium': 'medium',     '3': 'medium', '中危': 'medium',
+    'Low': 'success',       '4': 'success', '低危': 'success',
+    'None': 'success',      '5': 'success', '无危害': 'success'
   };
   
   return map[severityNormalized] || map[s] || 'info';
@@ -604,15 +604,15 @@ onMounted(() => {
   font-size: 12px;
   font-weight: 500;
 
-  &.critical {
-    background: #fff2f0;
-    color: #a8071a;
-    border: 1px solid #ffccc7;
+  &.danger {
+    background: #fff1f0;
+    color: #cf1322;
+    border: 1px solid #ffa39e;
   }
 
-  &.high {
+  &.warning {
     background: #fff7e6;
-    color: #ad6800;
+    color: #d46b08;
     border: 1px solid #ffd591;
   }
 
@@ -622,7 +622,7 @@ onMounted(() => {
     border: 1px solid #ffe58f;
   }
 
-  &.low {
+  &.success {
     background: #f6ffed;
     color: #389e0d;
     border: 1px solid #b7eb8f;
